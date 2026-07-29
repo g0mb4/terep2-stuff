@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+    <title>Terep2InTheBrowser</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="css/js-dos.css">
+    <style>
+        html, body, #jsdos { width: 100%; height: 100%; margin: 0; padding: 0; background-color: black; }
+    </style>
+</head>
+<body>
+    <div id="dos" style="width: 800; height: 600;"></div>
+    <script src="js/js-dos.js"></script>
+    <script>
+        Dos(document.getElementById("dos"), {
+            url: "bin/Terep2.zip",
+            autoStart: true,
+            display: "full",
+            emulatorFunction: "dosboxDirect",
+            imageRendering: "pixelated"
+        });
+    </script>
+</body>
+</html>

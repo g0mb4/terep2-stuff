@@ -59,12 +59,18 @@
 
   <script type="module">
     import { initTerep2MapViewer } from './t2mv.js';
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const mapName = urlParams.get('mapName');
+    const mapFile = urlParams.get('mapFile');
+    const colFile = urlParams.get('colFile');
+    const maptexFile = urlParams.get('maptexFile');
 
     initTerep2MapViewer({
-        //mapName: "ORIGINAL",
-        //mapFile: "https://terep2.wiki.gg/images/MAP_Original.pcx?269cd0",
-        //colFile: "https://terep2.wiki.gg/images/COL_Original.pcx?3fbc89",
-        //maptexFile: "https://terep2.wiki.gg/images/MAPTEX_newer.pcx?c767da",
+        mapName: mapName,
+        mapFile: mapFile,
+        colFile: colFile,
+        maptexFile: maptexFile,
     });
   </script>
 </body>

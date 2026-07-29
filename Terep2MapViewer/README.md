@@ -10,4 +10,8 @@ Start local webserver:
 python -m http.server
 ```
 
-Modify the parameters of `initTerep2MapViewer()` in *index.html*.
+Use the URL to select the map, eg:
+
+```
+http://127.0.0.1:8000/?mapName=Original&mapFile=maps/original/MAP.PCX&colFile=maps/original/COL.PCX&maptexFile=maps/original/MAPTEX.PCX
+```

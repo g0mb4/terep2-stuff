@@ -178,7 +178,7 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(50, 80, 30);
 scene.add(dirLight);
 
-async function loadMap(mapName, mapFile, colFile, maptexFile) {
+async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
     try {
         const [mapRes, colRes, maptexRes] = await Promise.all([
             fetch(mapFile),
@@ -235,10 +235,18 @@ async function loadMap(mapName, mapFile, colFile, maptexFile) {
                 : 'Switch to MAPTEX.PCX';
         });
 
-        statusEl.innerHTML = `<strong>${mapName}</strong><br>` +
+        console.log(creator);
+        if (creator) {
+            statusEl.innerHTML = `<strong>${mapName}</strong> by <strong>${creator}</strong><br>` +
                              " • Left click + drag to rotate<br>" +
                              " • Right click + drag to pan<br>" +
                              " • Scroll to zoom";
+        } else {
+            statusEl.innerHTML = `<strong>${mapName}</strong><br>` +
+                             " • Left click + drag to rotate<br>" +
+                             " • Right click + drag to pan<br>" +
+                             " • Scroll to zoom";
+        }
     } catch (err) {
         console.error(err);
         statusEl.innerHTML = `<span style="color: #ff6b6b;">Error: ${err.message}</span>`;
@@ -260,11 +268,12 @@ function animate() {
 export function initTerep2MapViewer(options = {}) {
     const {
         mapName = "ORIGINAL",
+        creator = "Dénes Nagymáthé",
         mapFile = "MAP.PCX",
         colFile = "COL.PCX",
         maptexFile = "MAPTEX.PCX",
     } = options;
   
-    loadMap(mapName, mapFile, colFile, maptexFile);
+    loadMap(mapName, creator, mapFile, colFile, maptexFile);
     animate();
 }

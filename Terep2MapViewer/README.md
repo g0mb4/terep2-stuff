@@ -13,5 +13,5 @@ python -m http.server
 Use the URL to select the map, eg:
 
 ```
-http://127.0.0.1:8000/?mapName=Original&mapFile=maps/original/MAP.PCX&colFile=maps/original/COL.PCX&maptexFile=maps/original/MAPTEX.PCX
+http://127.0.0.1:8000/mapName=Original&creator=Dénes%20Nagymáthé&mapFile=maps/original/MAP.PCX&colFile=maps/original/COL.PCX&maptexFile=maps/original/MAPTEX.PCX
 ```

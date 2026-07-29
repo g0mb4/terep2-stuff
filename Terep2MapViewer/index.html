@@ -62,12 +62,14 @@
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
     const mapName = urlParams.get('mapName');
+    const creator = urlParams.get('creator');
     const mapFile = urlParams.get('mapFile');
     const colFile = urlParams.get('colFile');
     const maptexFile = urlParams.get('maptexFile');
 
     initTerep2MapViewer({
         mapName: mapName,
+        creator: creator,
         mapFile: mapFile,
         colFile: colFile,
         maptexFile: maptexFile,

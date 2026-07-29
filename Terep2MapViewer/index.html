@@ -63,9 +63,16 @@
     const urlParams = new URLSearchParams(queryString);
     const mapName = urlParams.get('mapName');
     const creator = urlParams.get('creator');
-    const mapFile = urlParams.get('mapFile');
-    const colFile = urlParams.get('colFile');
-    const maptexFile = urlParams.get('maptexFile');
+    let mapFile = urlParams.get('mapFile');
+    let colFile = urlParams.get('colFile');
+    let maptexFile = urlParams.get('maptexFile');
+
+    const map = urlParams.get('map');
+    if (map) {
+        mapFile = `maps/${map}/MAP.PCX`;
+        colFile = `maps/${map}/COL.PCX`;
+        maptexFile = `maps/${map}/MAPTEX.PCX`;
+    }
 
     initTerep2MapViewer({
         mapName: mapName,

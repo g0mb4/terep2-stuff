@@ -1,6 +1,8 @@
 # Terep2InTheBrowser
 
-Run Terep2 in the browser, using js-dos.
+Run Terep2 in the browser, using [js-dos](https://js-dos.com/overview.html).
+
+Performance is not great, it is recommended to play using the untextured mode (F10).
 
 ## Local usage
 

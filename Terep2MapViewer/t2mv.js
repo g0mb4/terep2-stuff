@@ -102,6 +102,10 @@ function parsePCXTexture(arrayBuffer) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+
     return texture;
 }
 
@@ -153,7 +157,101 @@ function parsePCXTileMap(colBuffer, maptexBuffer) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+
     return texture;
+}
+
+// based on:
+// https://github.com/Zi9/Deformers/blob/master/src/core/map.c
+function createGeometry(heights, scale, heightScale) {
+    const numQuads = MAP_SIZE - 1;
+    const totalTriangles = numQuads * numQuads * 2;
+    const totalVertices = totalTriangles * 3;
+
+    const vertices = new Float32Array(totalVertices * 3);
+    const uvs = new Float32Array(totalVertices * 2);
+
+    let vertC = 0;
+    let uvC = 0;
+
+    const halfSize = MAP_SIZE / 2.0;
+
+    for (let y = 0; y < numQuads; y++) {
+        for (let x = 0; x < numQuads; x++) {
+            const ry0 = MAP_SIZE - y;
+            const ry1 = MAP_SIZE - (y + 1);
+
+            // heights at the quad corners
+            const z00 = heights[ry0 * MAP_SIZE + x] * heightScale;             // Top-Left
+            const z01 = heights[ry1 * MAP_SIZE + x] * heightScale;             // Bottom-Left
+            const z10 = heights[ry0 * MAP_SIZE + (x + 1)] * heightScale;       // Top-Right
+            const z11 = heights[ry1 * MAP_SIZE + (x + 1)] * heightScale;       // Bottom-Right
+
+            // world positions centered around origin
+            const x0 = (x - halfSize) * scale;
+            const x1 = (x - halfSize + 1) * scale;
+            const y0 = (y - halfSize) * scale;
+            const y1 = (y - halfSize + 1) * scale;
+
+            // UV mapping matching the height row
+            const u0 = x / MAP_SIZE;
+            const u1 = (x + 1) / MAP_SIZE;
+
+            const v0 = 1.0 - (y / MAP_SIZE);
+            const v1 = 1.0 - ((y + 1) / MAP_SIZE);
+
+            // triangle 1
+            vertices[vertC]     = x0;
+            vertices[vertC + 1] = y0;
+            vertices[vertC + 2] = z00;
+            uvs[uvC]            = u0;
+            uvs[uvC + 1]        = v0;
+
+            vertices[vertC + 3] = x1;
+            vertices[vertC + 4] = y0;
+            vertices[vertC + 5] = z10;
+            uvs[uvC + 2]        = u1;
+            uvs[uvC + 3]        = v0;
+
+            vertices[vertC + 6] = x0;
+            vertices[vertC + 7] = y1;
+            vertices[vertC + 8] = z01;
+            uvs[uvC + 4]        = u0;
+            uvs[uvC + 5]        = v1;
+
+            // triangle 2
+            vertices[vertC + 9]  = x1;
+            vertices[vertC + 10] = y0;
+            vertices[vertC + 11] = z10;
+            uvs[uvC + 6]         = u1;
+            uvs[uvC + 7]         = v0;
+
+            vertices[vertC + 12] = x1;
+            vertices[vertC + 13] = y1;
+            vertices[vertC + 14] = z11;
+            uvs[uvC + 8]         = u1;
+            uvs[uvC + 9]         = v1;
+
+            vertices[vertC + 15] = x0;
+            vertices[vertC + 16] = y1;
+            vertices[vertC + 17] = z01;
+            uvs[uvC + 10]        = u0;
+            uvs[uvC + 11]        = v1;
+
+            vertC += 18;
+            uvC += 12;
+        }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.computeVertexNormals();
+
+    return geometry;
 }
 
 const container = document.getElementById('canvas-container');
@@ -200,21 +298,13 @@ async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
         const colTexture = parsePCXTexture(colBuffer);
         const tileMap = parsePCXTileMap(colBuffer, maptexBuffer);
 
-        const planeSize = 60;
-        const geometry = new THREE.PlaneGeometry(planeSize, planeSize, MAP_SIZE - 1, MAP_SIZE - 1);
-        const posAttr = geometry.attributes.position;
-        const elevationScale = 0.016;
-
-        for (let i = 0; i < posAttr.count; i++) {
-            posAttr.setZ(i, heights[i] * elevationScale);
-        }
-
-        geometry.computeVertexNormals();
+        const scale = 0.2;
+        const heightScale = 0.016;
+        const geometry = createGeometry(heights, scale, heightScale);
 
         const material = new THREE.MeshStandardMaterial({
             map: colTexture,
             roughness: 0.9,
-            metalness: 0.1,
             wireframe: false,
             flatShading: true
         });
@@ -235,18 +325,15 @@ async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
                 : 'Switch to MAPTEX.PCX';
         });
 
-        console.log(creator);
         if (creator) {
-            statusEl.innerHTML = `<strong>${mapName}</strong> by <strong>${creator}</strong><br>` +
-                             " • Left click + drag to rotate<br>" +
-                             " • Right click + drag to pan<br>" +
-                             " • Scroll to zoom";
+            statusEl.innerHTML = `<strong>${mapName}</strong> by <strong>${creator}</strong><br>`;
         } else {
-            statusEl.innerHTML = `<strong>${mapName}</strong><br>` +
-                             " • Left click + drag to rotate<br>" +
-                             " • Right click + drag to pan<br>" +
-                             " • Scroll to zoom";
+            statusEl.innerHTML = `<strong>${mapName}</strong><br>`;
         }
+
+        statusEl.innerHTML += " • Left click + drag to rotate<br>" +
+                              " • Right click + drag to pan<br>" +
+                              " • Scroll to zoom";
     } catch (err) {
         console.error(err);
         statusEl.innerHTML = `<span style="color: #ff6b6b;">Error: ${err.message}</span>`;

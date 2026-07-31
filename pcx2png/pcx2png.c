@@ -71,11 +71,12 @@ int main(int argc, char **argv)
     int byte;
     struct color *palette = NULL;
     int channels = sizeof(struct color);
+    int save_palette = 0;
     
     char outfile[256];
     
-    if (argc != 2) {
-        fprintf(stderr, "usage: pcx2png file.pcx\n");
+    if (argc < 2) {
+        fprintf(stderr, "usage: pcx2png file.pcx [--save-pal]\n");
         return 1;
     }
     
@@ -85,6 +86,9 @@ int main(int argc, char **argv)
         perror("fopen");
         return 1;
     }
+    
+    if (argc == 3 && !strcmp(argv[2], "--save-pal"))
+        save_palette = 1;
     
     // TODO: make it endian aware! works on x86(_64)
     nread = fread(&head, 1, sizeof(head), fp);
@@ -190,6 +194,27 @@ int main(int argc, char **argv)
     outfile[n - 1] = 'g';
     
     stbi_write_png(outfile, width, height, channels, img, width * channels);
+    
+    if (save_palette) {
+        char palfile[256];
+        strncpy(palfile, infile, sizeof(outfile));
+        palfile[n - 3] = 'p';
+        palfile[n - 2] = 'a';
+        palfile[n - 1] = 'l';
+        
+        FILE *fpal = fopen(palfile, "w");
+        if (fpal) {
+            fprintf(fpal, "index: R, G, B\n");
+            for (int i = 0; i < PCX_PALETTE_256_COUNT; ++i) {
+                struct color *c = &palette[i];
+                fprintf(fpal, "%d: %d, %d, %d\n", i, c->r, c->g, c->b);
+            }
+        
+            fclose(fpal);
+        } else {
+            fprintf(stderr, "unable to open %s\n", palfile);
+        }
+    }
 
 end:
     free(img);

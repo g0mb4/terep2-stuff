@@ -101,7 +101,7 @@ struct DataPoint3 {
     } else if (type == 69 || type == 246) {
         DataPoint3Type246 data;
     } else {
-        std::print("unknown DataPoint3 type: {}", type);
+        std::print("unknown DataPoint3 type: {}\n", type);
     }
 };
 

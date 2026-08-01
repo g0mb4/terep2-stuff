@@ -106,7 +106,14 @@ function parsePCXTexture(arrayBuffer) {
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
 
-    return texture;
+    // sky color is the last color in COL's palette
+    const skyColor = {
+        "R": palette[255 * 3] / 255,
+        "G": palette[255 * 3 + 1] / 255,
+        "B": palette[255 * 3 + 2] / 255,
+    };
+
+    return { texture, skyColor };
 }
 
 function parsePCXTileMap(colBuffer, maptexBuffer) {
@@ -256,7 +263,6 @@ function createGeometry(heights, scale, heightScale) {
 
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x5cbcfc);   // NOTE: maybe it comes from MAPTEX?
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 40, 50);
@@ -295,8 +301,10 @@ async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
         ]);
 
         const heights = parsePCXHeightmap(mapBuffer);
-        const colTexture = parsePCXTexture(colBuffer);
+        const { texture: colTexture, skyColor } = parsePCXTexture(colBuffer);
         const tileMap = parsePCXTileMap(colBuffer, maptexBuffer);
+
+        scene.background = new THREE.Color().setRGB( skyColor.R, skyColor.G, skyColor.B );
 
         const scale = 0.2;
         const heightScale = 0.016;

@@ -1,8 +1,10 @@
 /*
     PCX to PNG converter
-    
+
     PCX FILE FORMAT:
     https://web.archive.org/web/20030111010058/http://www.nist.fss.ru/hr/doc/spec/pcx.htm
+
+    2025-2026, gmb
 */
 
 #include <stdio.h>

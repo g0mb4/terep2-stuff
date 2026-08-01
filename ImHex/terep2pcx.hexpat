@@ -1,6 +1,8 @@
 // PCX used by Terep2
 //
 // source: https://web.archive.org/web/20030111010058/http://www.nist.fss.ru/hr/doc/spec/pcx.htm
+//
+// 2026, gmb
 
 #include <std/mem.pat>  // std::mem::size()
 #include <std/io.pat>   // std::print()

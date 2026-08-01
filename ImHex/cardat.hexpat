@@ -1,6 +1,8 @@
 // Terep2's CAR.DAT
 //
 // source: https://github.com/Zi9/Deformers/blob/master/src/core/car.c
+//
+// 2026, gmb
 
 #include <std/mem.pat>  // std::mem::size()
 #include <std/io.pat>   // std::print()

@@ -1,3 +1,9 @@
+/*
+    Terep2MapViewer
+
+    2026, gmb
+*/
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 

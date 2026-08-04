@@ -22,4 +22,5 @@ or
 http://127.0.0.1:8000/?mapName=Original&creator=Dénes%20Nagymáthé&date=1996-05-04&map=ORIGINAL
 ```
 
-The `creator` parameter can be omitted.
+If `maptexFile` is omitted *maps/ORIGINAL/MAPTEX.PCX* will be used.
+The `creator` and `date` parameters can be omitted.

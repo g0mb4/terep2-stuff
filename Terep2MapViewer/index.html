@@ -63,6 +63,7 @@
     const urlParams = new URLSearchParams(queryString);
     const mapName = urlParams.get('mapName');
     const creator = urlParams.get('creator');
+    const date = urlParams.get('date');
     let mapFile = urlParams.get('mapFile');
     let colFile = urlParams.get('colFile');
     let maptexFile = urlParams.get('maptexFile');
@@ -77,6 +78,7 @@
     initTerep2MapViewer({
         mapName: mapName,
         creator: creator,
+        date: date,
         mapFile: mapFile,
         colFile: colFile,
         maptexFile: maptexFile,

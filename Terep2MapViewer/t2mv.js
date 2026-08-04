@@ -288,7 +288,7 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(50, 80, 30);
 scene.add(dirLight);
 
-async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
+async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
     try {
         const [mapRes, colRes, maptexRes] = await Promise.all([
             fetch(mapFile),
@@ -345,7 +345,12 @@ async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
             statusEl.innerHTML = `<strong>${mapName}</strong> by an unknown creator<br>`;
         }
 
-        statusEl.innerHTML += " • Left click + drag to rotate<br>" +
+        if (date) {
+            statusEl.innerHTML += `${date}<br>`;
+        }
+
+        statusEl.innerHTML += "<br> Controls:<br>" +
+                              " • Left click + drag to rotate<br>" +
                               " • Right click + drag to pan<br>" +
                               " • Scroll to zoom";
     } catch (err) {
@@ -370,11 +375,12 @@ export function initTerep2MapViewer(options = {}) {
     const {
         mapName = "ORIGINAL",
         creator = "Dénes Nagymáthé",
+        date = "1996-05-04",
         mapFile = "MAP.PCX",
         colFile = "COL.PCX",
         maptexFile = "MAPTEX.PCX",
     } = options;
   
-    loadMap(mapName, creator, mapFile, colFile, maptexFile);
+    loadMap(mapName, creator, date, mapFile, colFile, maptexFile);
     animate();
 }

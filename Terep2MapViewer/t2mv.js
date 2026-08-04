@@ -342,7 +342,7 @@ async function loadMap(mapName, creator, mapFile, colFile, maptexFile) {
         if (creator) {
             statusEl.innerHTML = `<strong>${mapName}</strong> by <strong>${creator}</strong><br>`;
         } else {
-            statusEl.innerHTML = `<strong>${mapName}</strong><br>`;
+            statusEl.innerHTML = `<strong>${mapName}</strong> by an unknown creator<br>`;
         }
 
         statusEl.innerHTML += " • Left click + drag to rotate<br>" +

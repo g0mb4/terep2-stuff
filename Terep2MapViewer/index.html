@@ -75,6 +75,10 @@
         mapFile = `maps/${map}/MAP.PCX`;
         colFile = `maps/${map}/COL.PCX`;
         maptexFile = `maps/${map}/MAPTEX.PCX`;
+    } else {
+        if (!maptexFile) {
+            maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
+        }
     }
 
     initTerep2MapViewer({

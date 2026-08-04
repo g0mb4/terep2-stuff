@@ -352,7 +352,8 @@ async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
         statusEl.innerHTML += "<br> Controls:<br>" +
                               " • Left click + drag to rotate<br>" +
                               " • Right click + drag to pan<br>" +
-                              " • Scroll to zoom";
+                              " • Scroll to zoom<br>" +
+                              " • Press 'h' to hide/show this panel";
     } catch (err) {
         console.error(err);
         statusEl.innerHTML = `<span style="color: #ff6b6b;">Error: ${err.message}</span>`;

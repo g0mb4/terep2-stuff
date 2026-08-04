@@ -81,6 +81,17 @@
         }
     }
 
+    const panel = document.getElementById('ui-panel');
+    window.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'h') {
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+    });
+
     initTerep2MapViewer({
         mapName: mapName,
         creator: creator,

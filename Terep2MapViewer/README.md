@@ -13,13 +13,13 @@ python -m http.server
 Use the URL to select the map, e.g.:
 
 ```
-http://127.0.0.1:8000/mapName=Original&creator=Dénes%20Nagymáthé&mapFile=maps/ORIGINAL/MAP.PCX&colFile=maps/ORIGINAL/COL.PCX&maptexFile=maps/ORIGINAL/MAPTEX.PCX
+http://127.0.0.1:8000/?mapName=Original&creator=Dénes%20Nagymáthé&mapFile=maps/ORIGINAL/MAP.PCX&colFile=maps/ORIGINAL/COL.PCX&maptexFile=maps/ORIGINAL/MAPTEX.PCX
 ```
 
 or
 
 ```
-http://127.0.0.1:8000/mapName=Original&creator=Dénes%20Nagymáthé&map=ORIGINAL
+http://127.0.0.1:8000/?mapName=Original&creator=Dénes%20Nagymáthé&map=ORIGINAL
 ```
 
 The `creator` parameter can be omitted.

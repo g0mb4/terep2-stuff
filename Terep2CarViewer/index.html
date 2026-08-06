@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terep2 Car Viewer by gmb</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background-color: #111; font-family: system-ui, sans-serif; }
+    #canvas-container { width: 100vw; height: 100vh; }
+    #ui-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      user-select: none;
+      font-family: Consolas, "Courier New", monospace;
+    }
+    #toggle-btn {
+      background: #2a75d3;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      transition: background 0.2s ease;
+      font-family: Consolas, "Courier New", monospace;
+    }
+    #toggle-btn:hover {
+      background: #3b86e4;
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="t2cv.js"></script>
+</head>
+<body>
+
+  <div id="ui-panel">
+    <div id="status">Loading car ...</div>
+    <button id="toggle-btn" style="display: none;">Switch to MAPTEX.PCX</button>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script type="module">
+    import { initTerep2CarViewer } from './t2cv.js';
+/*
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const mapName = urlParams.get('mapName');
+    const creator = urlParams.get('creator');
+    const date = urlParams.get('date');
+    let mapFile = urlParams.get('mapFile');
+    let colFile = urlParams.get('colFile');
+    let maptexFile = urlParams.get('maptexFile');
+
+    const map = urlParams.get('map');
+    if (map) {
+        mapFile = `maps/${map}/MAP.PCX`;
+        colFile = `maps/${map}/COL.PCX`;
+        maptexFile = `maps/${map}/MAPTEX.PCX`;
+    } else {
+        if (!maptexFile) {
+            maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
+        }
+    }
+
+    const panel = document.getElementById('ui-panel');
+    window.addEventListener('keydown', (event) => {
+        if (event.key.toLowerCase() === 'h') {
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+    });
+*/
+    const datFile = "cars/models/CAR1.DAT";
+    const pcxFile = "cars/skins/DEFAULT1.PCX";
+
+    initTerep2CarViewer({
+        datFile: datFile,
+        pcxFile: pcxFile,
+    });
+  </script>
+</body>
+</html>

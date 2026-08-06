@@ -1,6 +1,6 @@
 // Terep2's CAR.DAT
 //
-// source: https://github.com/Zi9/Deformers/blob/master/src/core/car.c
+// source: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c
 //
 // 2026, gmb
 
@@ -31,14 +31,11 @@ enum DataPoint1Type : u16 {
 };
 
 struct DataPoint1 {
-    u16 pad1;
-    s16 x;
-    u16 pad2;
-    s16 y;
-    u16 pad3;
-    s16 z;
-    u8 pad4[12];
-    s16 diameter;
+    s32 x;
+    s32 y;
+    s32 z;
+    u8 pad4[10];
+    s32 diameter;
     DataPoint1Type type;
 };
 

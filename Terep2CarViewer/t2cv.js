@@ -447,7 +447,7 @@ function animate() {
 export function initTerep2CarViewer(options = {}) {
     const {
         datFile = "CAR1.DAT",
-        pcxFile = "DEFAULT1.PCX",
+        pcxFile = "TESTW.PCX",
     } = options;
   
     loadCar(datFile, pcxFile);

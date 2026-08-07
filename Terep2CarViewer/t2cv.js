@@ -28,7 +28,7 @@ const SEGMENT = {
 };
 
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c 
-function parseDat(arrayBuffer) {
+function parseDat(arrayBuffer, wheelTextures) {
     const view = new DataView(arrayBuffer);
     let offset = 0;
 
@@ -159,14 +159,14 @@ function parseDat(arrayBuffer) {
         default: throw new Error("Invalid drive mode.");
     }
 
-    const mesh = createCarMesh(points1, points2);
+    const mesh = createCarMesh(points1, points2, wheelTextures);
 
     return { driveMode, mesh };
 }
 
 // source:
 // https://github.com/Zi9/Deformers/blob/master/src/Engine/Rendering/DFCarRenderer.c
-export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
+export function createCarMesh(points1, points2, wheelTextures, MODEL_SCALE = 10000000.0) {
     const carGroup = new THREE.Group();
 
     const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
@@ -178,48 +178,35 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         const posY = pt.y / MODEL_SCALE;
         const posZ = pt.z / MODEL_SCALE;
 
-        if (pt.type == POINT.CAMERA) return;
+        if (pt.type === POINT.CAMERA) return;
 
-        let color = 0x000000;
-        switch (pt.type) {
-            case POINT.GEOMETRY:
-                color = 0x000000;
-                break;
-            case POINT.CAMERA:
-                color = 0xff00ff;
-                break;
-            case POINT.WHEEL_FRONT:
-                color = 0x0000ff;
-                break;
-            case POINT.WHEEL_REAR:
-                color = 0xff0000;
-                break;
+        if (pt.type === POINT.GEOMETRY) {
+            const cubeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+            cubeMesh.position.set(posX, posY, posZ);
+            carGroup.add(cubeMesh);
         }
 
-        const cubeMat = new THREE.MeshBasicMaterial({ color });
-        const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-        cubeMesh.position.set(posX, posY, posZ);
-        carGroup.add(cubeMesh);
+        // TODO: texture should depend on view
+        if (pt.type === POINT.WHEEL_FRONT || pt.type === POINT.WHEEL_REAR) {
+            if (pt.diameter <= 0) return
 
-        if (pt.diameter > 0) {
-            const radius = (pt.diameter / MODEL_SCALE);
+            const diam = (pt.diameter / MODEL_SCALE)*2;
 
-            const circleGeo = new THREE.BufferGeometry();
-            const segments = 32;
-            const positions = new Float32Array((segments + 1) * 3);
+            const wheelTexture = wheelTextures.front1;
+            const aspect = wheelTexture.image.width / wheelTexture.image.height;
+            const wheelGeo = new THREE.PlaneGeometry(aspect*diam, diam);
 
-            for (let i = 0; i <= segments; i++) {
-                const theta = (i / segments) * Math.PI * 2;
-                positions[i * 3]     = 0; // X
-                positions[i * 3 + 1] = Math.cos(theta) * radius;
-                positions[i * 3 + 2] = Math.sin(theta) * radius;
-            }
+            const wheelMat = new THREE.MeshBasicMaterial({
+                map: wheelTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
 
-            circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const circleMat = new THREE.LineBasicMaterial({ color: 0xffc0cb });
-            const circleLine = new THREE.LineLoop(circleGeo, circleMat);
-            circleLine.position.set(posX, posY, posZ);
-            carGroup.add(circleLine);
+            const wheelMesh = new THREE.Mesh(wheelGeo, wheelMat);
+            wheelMesh.rotation.y = Math.PI / 2;
+            wheelMesh.position.set(posX, posY, posZ);
+            carGroup.add(wheelMesh);
         }
     });
 
@@ -348,6 +335,36 @@ function parsePCXTexture(arrayBuffer) {
     return texture;
 }
 
+function getSubTexture(sourceTexture, x1, y1, x2, y2) {
+    const sourceCanvas = sourceTexture.image;
+    const width = x2 - x1 + 1;
+    const height = y2 - y1 + 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+        sourceCanvas,
+        x1, y1, width, height,
+        0, 0, width, height
+    );
+
+    const subTexture = new THREE.CanvasTexture(canvas);
+    subTexture.colorSpace = sourceTexture.colorSpace;
+    subTexture.magFilter = THREE.NearestFilter;
+    subTexture.minFilter = THREE.NearestFilter;
+    subTexture.wrapS = THREE.ClampToEdgeWrapping;
+    subTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+    subTexture.needsUpdate = true;
+
+    return subTexture;
+}
+
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color().setRGB( 0.5, 0.5, 0.5 );
@@ -387,8 +404,20 @@ async function loadCar(datFile, pcxFile) {
             pcxRes.arrayBuffer()
         ]);
 
-        const { driveMode, mesh } = parseDat(datBuffer);
         const texture = parsePCXTexture(pcxBuffer);
+        const wheelTextures = {
+            front1 : getSubTexture(texture, 118, 2, 148, 32),
+            front2 : getSubTexture(texture, 150, 2, 178, 32),
+            front3 : getSubTexture(texture, 180, 2, 205, 32),
+            front4 : getSubTexture(texture, 207, 2, 225, 32),
+            front5 : getSubTexture(texture, 227, 2, 238, 32),
+            back1 : getSubTexture(texture, 118, 34, 147, 63),
+            back2 : getSubTexture(texture, 149, 34, 177, 63),
+            back3 : getSubTexture(texture, 179, 34, 204, 63),
+            back4 : getSubTexture(texture, 206, 34, 225, 63),
+        }
+
+        const { driveMode, mesh } = parseDat(datBuffer, wheelTextures);
 
         // TODO: skin
         //const material = new THREE.MeshStandardMaterial({

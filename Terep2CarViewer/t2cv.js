@@ -94,7 +94,7 @@ function parseDat(arrayBuffer, wheelTextures) {
         let dataPoint = { type, data: null };
 
         if (type === 0) {
-          // Nothing
+            // Nothing
         } else if (type === 1) {
             const data = [];
             for (let j = 0; j < 4; j++) {
@@ -193,7 +193,7 @@ export function createCarMesh(points1, points2, wheelTextures, MODEL_SCALE = 100
 
             const diam = (pt.diameter / MODEL_SCALE)*2;
 
-            const wheelTexture = wheelTextures.front1;
+            const wheelTexture = wheelTextures.front3;
             const aspect = wheelTexture.image.width / wheelTexture.image.height;
             const wheelGeo = new THREE.PlaneGeometry(aspect*diam, diam);
 
@@ -205,6 +205,7 @@ export function createCarMesh(points1, points2, wheelTextures, MODEL_SCALE = 100
 
             const wheelMesh = new THREE.Mesh(wheelGeo, wheelMat);
             wheelMesh.rotation.y = Math.PI / 2;
+            wheelMesh.rotation.x = -Math.PI / 2;
             wheelMesh.position.set(posX, posY, posZ);
             carGroup.add(wheelMesh);
         }

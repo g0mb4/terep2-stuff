@@ -5,12 +5,24 @@
 */
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
 const statusEl = document.getElementById('status');
 const toggleBtn = document.getElementById('toggle-btn');
 
-const MODEL_SCALE = 10000000.0;
+const POINT = {
+    GEOMETRY: 0,
+    WHEEL_REAR: 1,
+    WHEEL_FRONT: 2,
+    CAMERA: 65535
+};
+
+const SEGMENT = {
+    SUSP_EXTRA: 0,
+    NORMAL: 1,
+    SUSP_REAR: 4 | 6,
+    SUSP_FRONT: 10 | 12 
+};
 
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c 
 function parseDat(arrayBuffer) {
@@ -43,10 +55,6 @@ function parseDat(arrayBuffer) {
             diameter: view.getInt32(p1Offset + 22, true),
             type: view.getUint16(p1Offset + 26, true)
         };
-
-        geometryPoints.push( [ p1.x / MODEL_SCALE,
-                               p1.y / MODEL_SCALE,
-                               p1.z / MODEL_SCALE ] );
 
         points1.push(p1);
         p1Offset += POINT1_SIZE;
@@ -148,14 +156,112 @@ function parseDat(arrayBuffer) {
         default: throw new Error("Invalid drive mode.");
     }
 
-    const geometry = new THREE.BufferGeometry();
-    const flatPositions = new Float32Array(geometryPoints.flat());
-    geometry.setAttribute(
-        'position', 
-        new THREE.BufferAttribute(flatPositions, 3) // 3 components per vertex (X, Y, Z)
-    );
+    const mesh = createCarMesh(points1, points2);
 
-    return { driveMode, geometry };
+    return { driveMode, mesh };
+}
+
+// source:
+// https://github.com/Zi9/Deformers/blob/master/src/Engine/Rendering/DFCarRenderer.c
+export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
+    const carGroup = new THREE.Group();
+
+    const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+
+    const getColor = (hex) => new THREE.Color(hex);
+
+    points1.forEach((pt) => {
+        const posX = pt.x / MODEL_SCALE;
+        const posY = pt.y / MODEL_SCALE;
+        const posZ = pt.z / MODEL_SCALE;
+
+        let color = 0x000000; // Default BLACK
+        switch (pt.type) {
+            case POINT.GEOMETRY:
+                color = 0x000000; // BLACK
+                break;
+            case POINT.CAMERA:
+                color = 0xff00ff; // MAGENTA
+                break;
+            case POINT.WHEEL_FRONT:
+                color = 0x0000ff; // BLUE
+                break;
+            case POINT.WHEEL_REAR:
+                color = 0xff0000; // RED
+                break;
+        }
+
+        const cubeMat = new THREE.MeshBasicMaterial({ color });
+        const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+        cubeMesh.position.set(posX, posY, posZ);
+        carGroup.add(cubeMesh);
+
+        if (pt.diameter > 0) {
+            const radius = (pt.diameter / MODEL_SCALE);
+
+            if (pt.type === POINT.CAMERA) {
+                const sphereGeo = new THREE.SphereGeometry(radius, 16, 16);
+                const sphereMat = new THREE.MeshBasicMaterial({ 
+                    color: 0xffc0cb, // PINK
+                    wireframe: true 
+                });
+                const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+                sphereMesh.position.set(posX, posY, posZ);
+                carGroup.add(sphereMesh);
+            } else {
+                const circleGeo = new THREE.BufferGeometry();
+                const segments = 32;
+                const positions = new Float32Array((segments + 1) * 3);
+
+                for (let i = 0; i <= segments; i++) {
+                    const theta = (i / segments) * Math.PI * 2;
+                    positions[i * 3]     = 0; // X
+                    positions[i * 3 + 1] = Math.cos(theta) * radius;
+                    positions[i * 3 + 2] = Math.sin(theta) * radius;
+                }
+
+                circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                const circleMat = new THREE.LineBasicMaterial({ color: 0xffc0cb });
+                const circleLine = new THREE.LineLoop(circleGeo, circleMat);
+                circleLine.position.set(posX, posY, posZ);
+                carGroup.add(circleLine);
+            }
+        }
+    });
+
+    points2.forEach((seg) => {
+        const pA = points1[seg.a];
+        const pB = points1[seg.b];
+
+        if (!pA || !pB) return
+
+        let color = 0xffffff;
+        switch (seg.type) {
+            case SEGMENT.NORMAL:
+                color = 0xffffff;
+                break;
+            case SEGMENT.SUSP_FRONT:
+                color = 0x0000ff;
+                break;
+            case SEGMENT.SUSP_REAR:
+                color = 0xff0000;
+                break;
+            case SEGMENT.SUSP_EXTRA:
+                color = 0x00ff00;
+                break;
+        }
+
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
+            new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+        ]);
+
+        const lineMat = new THREE.LineBasicMaterial({ color });
+        const line = new THREE.Line(lineGeo, lineMat);
+        carGroup.add(line);
+    });
+
+    return carGroup;
 }
 
 function decodePCX(arrayBuffer) {
@@ -251,50 +357,22 @@ function parsePCXTexture(arrayBuffer) {
     return texture;
 }
 
-function zoomToFit(object, camera, controls, offset = 1.2) {
-    object.geometry.computeBoundingBox();
-    const boundingBox = object.geometry.boundingBox;
-
-    const center = new THREE.Vector3();
-    const size = new THREE.Vector3();
-    boundingBox.getCenter(center);
-    boundingBox.getSize(size);
-
-    const maxDim = Math.max(size.x, size.y, size.z);
-
-    const fov = camera.fov * (Math.PI / 180);
-    let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-
-    cameraDistance *= offset;
-
-    const direction = new THREE.Vector3()
-    .subVectors(camera.position, controls ? controls.target : new THREE.Vector3())
-    .normalize();
-
-    camera.position.copy(center).addScaledVector(direction, cameraDistance);
-
-    if (controls) {
-        controls.target.copy(center);
-        controls.update();
-    }
-
-    camera.lookAt(center);
-}
-
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color().setRGB( 0.5, 0.5, 0.5 );
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 40, 50);
+camera.position.set(2, -2, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 container.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
+const controls = new TrackballControls(camera, renderer.domElement);
+controls.rotateSpeed = 8;
+controls.zoomSpeed = 8;
+controls.panSpeed = 8;
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
@@ -318,7 +396,7 @@ async function loadCar(datFile, pcxFile) {
             pcxRes.arrayBuffer()
         ]);
 
-        const { driveMode, geometry } = parseDat(datBuffer);
+        const { driveMode, mesh } = parseDat(datBuffer);
         const texture = parsePCXTexture(pcxBuffer);
 
         // TODO: skin
@@ -329,16 +407,17 @@ async function loadCar(datFile, pcxFile) {
         //    flatShading: true
         //});
         
-        const material = new THREE.PointsMaterial({
-            color: 0x00ff88,
-            size: 0.05,
-            sizeAttenuation: true
-        });
+        //const material = new THREE.PointsMaterial({
+        //    color: 0x00ff88,
+        //    size: 0.05,
+        //    sizeAttenuation: true
+        //});
 
-        const pointCloud = new THREE.Points(geometry, material);
-        scene.add(pointCloud);
-        
-        zoomToFit(pointCloud, camera, controls);
+        //const carMesh = new THREE.Points(geometry, material);
+        mesh.rotation.x = Math.PI / 2;
+        mesh.rotation.y = Math.PI / 2;
+        mesh.rotation.z = -Math.PI / 4;
+        scene.add(mesh);
 
         statusEl.innerHTML = `${driveMode}<br>`
 

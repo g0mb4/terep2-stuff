@@ -10,6 +10,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const statusEl = document.getElementById('status');
 const toggleBtn = document.getElementById('toggle-btn');
 
+const MODEL_SCALE = 10000000.0;
+
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c 
 function parseDat(arrayBuffer) {
     const view = new DataView(arrayBuffer);
@@ -31,14 +33,22 @@ function parseDat(arrayBuffer) {
     const points1 = [];
     const POINT1_SIZE = 4 + 4 + 4 + 10 + 4 + 2;
     
+    const geometryPoints = [];
+    
     for (let i = 0; i < num_points1; i++) {
-        points1.push({
+        const p1 = {
             x: view.getInt32(p1Offset, true),
             y: view.getInt32(p1Offset + 4, true),
             z: view.getInt32(p1Offset + 8, true),
             diameter: view.getInt32(p1Offset + 22, true),
             type: view.getUint16(p1Offset + 26, true)
-        });
+        };
+
+        geometryPoints.push( [ p1.x / MODEL_SCALE,
+                               p1.y / MODEL_SCALE,
+                               p1.z / MODEL_SCALE ] );
+
+        points1.push(p1);
         p1Offset += POINT1_SIZE;
     }
 
@@ -61,6 +71,74 @@ function parseDat(arrayBuffer) {
         });
         p2Offset += POINT2_SIZE;
     }
+    
+    let p3Offset = header.chunk3_start;
+    const points3 = [];
+    const fileSize = arrayBuffer.byteLength;
+
+    while (p3Offset < fileSize) {
+        const type = view.getUint8(p3Offset);
+        p3Offset += 1;
+
+        let dataPoint = { type, data: null };
+
+        if (type === 0) {
+          // Nothing
+        } else if (type === 1) {
+            const data = [];
+            for (let j = 0; j < 4; j++) {
+                data.push(view.getInt8(p3Offset));
+                p3Offset += 1;
+            }
+            dataPoint.data = data;
+        } else if (type === 3) {
+            const data = [];
+            for (let j = 0; j < 6; j++) {
+                data.push(view.getInt16(p3Offset, true));
+                p3Offset += 2;
+            }
+            dataPoint.data = data;
+        } else if (type === 4) {
+            const count = view.getUint8(p3Offset);
+            p3Offset += 1;
+            const dataLength = count + 2;
+            const data = [];
+            for (let j = 0; j < dataLength; j++) {
+                data.push(view.getInt16(p3Offset, true));
+                p3Offset += 2;
+            }
+            dataPoint.data = { count, data };
+        } else if (type === 8) {
+            const count = view.getUint8(p3Offset);
+            p3Offset += 1;
+            const dataLength = (count + 1) * 3;
+            const data = [];
+            for (let j = 0; j < dataLength; j++) {
+                data.push(view.getUint16(p3Offset, true));
+                p3Offset += 2;
+            }
+            dataPoint.data = { count, data };
+        } else if (type === 10) {
+            const data = [];
+            for (let j = 0; j < 3; j++) {
+                data.push(view.getUint16(p3Offset, true));
+                p3Offset += 2;
+            }
+            dataPoint.data = data;
+        } else if (type === 69 || type === 246) {
+            const data = [];
+            for (let j = 0; j < 19; j++) {
+                data.push(view.getUint8(p3Offset));
+                p3Offset += 1;
+            }
+            dataPoint.data = data;
+        } else {
+            console.warn(`Unknown DataPoint3 type: ${type}`);
+            break;
+        }
+
+        points3.push(dataPoint);
+    }
 
     let driveMode = "RWD";
     switch (header.drive_mode) {
@@ -70,10 +148,14 @@ function parseDat(arrayBuffer) {
         default: throw new Error("Invalid drive mode.");
     }
 
-    // TODO
-    const model = null;
+    const geometry = new THREE.BufferGeometry();
+    const flatPositions = new Float32Array(geometryPoints.flat());
+    geometry.setAttribute(
+        'position', 
+        new THREE.BufferAttribute(flatPositions, 3) // 3 components per vertex (X, Y, Z)
+    );
 
-    return { driveMode, model };
+    return { driveMode, geometry };
 }
 
 function decodePCX(arrayBuffer) {
@@ -169,6 +251,36 @@ function parsePCXTexture(arrayBuffer) {
     return texture;
 }
 
+function zoomToFit(object, camera, controls, offset = 1.2) {
+    object.geometry.computeBoundingBox();
+    const boundingBox = object.geometry.boundingBox;
+
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    boundingBox.getCenter(center);
+    boundingBox.getSize(size);
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+
+    const fov = camera.fov * (Math.PI / 180);
+    let cameraDistance = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+    cameraDistance *= offset;
+
+    const direction = new THREE.Vector3()
+    .subVectors(camera.position, controls ? controls.target : new THREE.Vector3())
+    .normalize();
+
+    camera.position.copy(center).addScaledVector(direction, cameraDistance);
+
+    if (controls) {
+        controls.target.copy(center);
+        controls.update();
+    }
+
+    camera.lookAt(center);
+}
+
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color().setRGB( 0.5, 0.5, 0.5 );
@@ -206,22 +318,28 @@ async function loadCar(datFile, pcxFile) {
             pcxRes.arrayBuffer()
         ]);
 
-        const { driveMode, model } = parseDat(datBuffer);
+        const { driveMode, geometry } = parseDat(datBuffer);
         const texture = parsePCXTexture(pcxBuffer);
 
-        //const geometry = createGeometry(heights, scale, heightScale);
-
-        const material = new THREE.MeshStandardMaterial({
-            map: texture,
-            roughness: 0.9,
-            wireframe: false,
-            flatShading: true
+        // TODO: skin
+        //const material = new THREE.MeshStandardMaterial({
+        //    map: texture,
+        //    roughness: 0.9,
+        //    wireframe: false,
+        //    flatShading: true
+        //});
+        
+        const material = new THREE.PointsMaterial({
+            color: 0x00ff88,
+            size: 0.05,
+            sizeAttenuation: true
         });
 
-        //const mesh = new THREE.Mesh(geometry, material);
-        //mesh.rotation.x = -Math.PI / 2;
-        //scene.add(mesh);
+        const pointCloud = new THREE.Points(geometry, material);
+        scene.add(pointCloud);
         
+        zoomToFit(pointCloud, camera, controls);
+
         statusEl.innerHTML = `${driveMode}<br>`
 
         statusEl.innerHTML += "<br> Controls:<br>" +

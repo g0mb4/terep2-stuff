@@ -10,6 +10,9 @@ import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 const statusEl = document.getElementById('status');
 const toggleBtn = document.getElementById('toggle-btn');
 
+const SKIN_WIDTH = 320;
+const SKIN_HEIGHT = 200;
+
 const POINT = {
     GEOMETRY: 0,
     WHEEL_REAR: 1,
@@ -288,6 +291,10 @@ function decodePCX(arrayBuffer) {
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
 
+    if (width != SKIN_WIDTH || height != SKIN_HEIGHT) {
+        throw new Error("Invalid PCX dimensions.");
+    }
+
     const bytesPerLine = view.getUint16(66, true);
 
     const paletteOffset = bytes.length - PALETTE_SIZE;
@@ -323,25 +330,31 @@ function decodePCX(arrayBuffer) {
         }
     }
 
-    return { width, height, indices, palette };
+    return { indices, palette };
 }
 
 function parsePCXTexture(arrayBuffer) {
-    const { width, height, indices, palette } = decodePCX(arrayBuffer);
+    const { indices, palette } = decodePCX(arrayBuffer);
 
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = SKIN_WIDTH;
+    canvas.height = SKIN_HEIGHT;
     const ctx = canvas.getContext('2d');
-    const imgData = ctx.createImageData(width, height);
+    const imgData = ctx.createImageData(SKIN_WIDTH, SKIN_HEIGHT);
 
-    for (let i = 0; i < width * height; i++) {
+    for (let i = 0; i < SKIN_WIDTH * SKIN_HEIGHT; i++) {
         const colorIdx = indices[i];
         const pixelIdx = i * 4;
         imgData.data[pixelIdx]     = palette[colorIdx * 3];         // R
         imgData.data[pixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
         imgData.data[pixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
-        imgData.data[pixelIdx + 3] = 255;                           // A
+
+        // last color is transparent
+        if (colorIdx == 255) {
+            imgData.data[pixelIdx + 3] = 0;                         // A
+        } else {
+            imgData.data[pixelIdx + 3] = 255;                       // A
+        }
     }
 
     ctx.putImageData(imgData, 0, 0);

@@ -178,19 +178,21 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         const posY = pt.y / MODEL_SCALE;
         const posZ = pt.z / MODEL_SCALE;
 
-        let color = 0x000000; // Default BLACK
+        if (pt.type == POINT.CAMERA) return;
+
+        let color = 0x000000;
         switch (pt.type) {
             case POINT.GEOMETRY:
-                color = 0x000000; // BLACK
+                color = 0x000000;
                 break;
             case POINT.CAMERA:
-                color = 0xff00ff; // MAGENTA
+                color = 0xff00ff;
                 break;
             case POINT.WHEEL_FRONT:
-                color = 0x0000ff; // BLUE
+                color = 0x0000ff;
                 break;
             case POINT.WHEEL_REAR:
-                color = 0xff0000; // RED
+                color = 0xff0000;
                 break;
         }
 
@@ -202,33 +204,22 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         if (pt.diameter > 0) {
             const radius = (pt.diameter / MODEL_SCALE);
 
-            if (pt.type === POINT.CAMERA) {
-                const sphereGeo = new THREE.SphereGeometry(radius, 16, 16);
-                const sphereMat = new THREE.MeshBasicMaterial({ 
-                    color: 0xffc0cb, // PINK
-                    wireframe: true 
-                });
-                const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
-                sphereMesh.position.set(posX, posY, posZ);
-                carGroup.add(sphereMesh);
-            } else {
-                const circleGeo = new THREE.BufferGeometry();
-                const segments = 32;
-                const positions = new Float32Array((segments + 1) * 3);
+            const circleGeo = new THREE.BufferGeometry();
+            const segments = 32;
+            const positions = new Float32Array((segments + 1) * 3);
 
-                for (let i = 0; i <= segments; i++) {
-                    const theta = (i / segments) * Math.PI * 2;
-                    positions[i * 3]     = 0; // X
-                    positions[i * 3 + 1] = Math.cos(theta) * radius;
-                    positions[i * 3 + 2] = Math.sin(theta) * radius;
-                }
-
-                circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                const circleMat = new THREE.LineBasicMaterial({ color: 0xffc0cb });
-                const circleLine = new THREE.LineLoop(circleGeo, circleMat);
-                circleLine.position.set(posX, posY, posZ);
-                carGroup.add(circleLine);
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * Math.PI * 2;
+                positions[i * 3]     = 0; // X
+                positions[i * 3 + 1] = Math.cos(theta) * radius;
+                positions[i * 3 + 2] = Math.sin(theta) * radius;
             }
+
+            circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const circleMat = new THREE.LineBasicMaterial({ color: 0xffc0cb });
+            const circleLine = new THREE.LineLoop(circleGeo, circleMat);
+            circleLine.position.set(posX, posY, posZ);
+            carGroup.add(circleLine);
         }
     });
 
@@ -237,23 +228,10 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         const pB = points1[seg.b];
 
         if (!pA || !pB) return
+        if (seg.type != SEGMENT.NORMAL) return;
+        if (pA.type != POINT.GEOMETRY || pB.type != POINT.GEOMETRY) return;
 
         let color = 0xffffff;
-        switch (seg.type) {
-            case SEGMENT.NORMAL:
-                color = 0xffffff;
-                break;
-            case SEGMENT.SUSP_FRONT:
-                color = 0x0000ff;
-                break;
-            case SEGMENT.SUSP_REAR:
-                color = 0xff0000;
-                break;
-            case SEGMENT.SUSP_EXTRA:
-                color = 0x00ff00;
-                break;
-        }
-
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
             new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)

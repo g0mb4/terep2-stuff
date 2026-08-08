@@ -13,6 +13,8 @@ const toggleBtn = document.getElementById('toggle-btn');
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
 
+let activeWheelMeshes = [];
+
 const POINT = {
     GEOMETRY: 0,
     WHEEL_REAR: 1,
@@ -223,6 +225,84 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
     return { carBody, wheels };
 }
 
+function cloneAndFlipX(texture) {
+    const flipped = texture.clone();
+    flipped.wrapS = THREE.RepeatWrapping;
+    flipped.repeat.x = -1;
+    flipped.offset.x = 1;
+    flipped.needsUpdate = true;
+    return flipped;
+}
+
+function createWheelPlates(wheels, wheelTextures){
+    const wheelGroup = new THREE.Group();
+
+    const frontAngles = [
+        wheelTextures.front1,
+        wheelTextures.front2,
+        wheelTextures.front3,
+        wheelTextures.front4,
+        wheelTextures.front5,
+        cloneAndFlipX(wheelTextures.front4),
+        cloneAndFlipX(wheelTextures.front3),
+        cloneAndFlipX(wheelTextures.front2),
+        wheelTextures.front1
+    ];
+
+    const backAngles = [
+        wheelTextures.back1,
+        wheelTextures.back2,
+        wheelTextures.back3,
+        wheelTextures.back4,
+        wheelTextures.front5,
+        cloneAndFlipX(wheelTextures.back4),
+        cloneAndFlipX(wheelTextures.back3),
+        cloneAndFlipX(wheelTextures.back2),
+        wheelTextures.back1
+    ];
+
+    wheels.forEach((wheel) => {
+        const wheelTexture = wheelTextures.front1;
+
+        const aspect = wheelTexture.image.width / wheelTexture.image.height;
+        const wheelGeo = new THREE.PlaneGeometry(aspect*wheel.diam, wheel.diam);
+
+        const wheelMat = new THREE.MeshBasicMaterial({
+            map: wheelTexture,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+
+        const wheelMesh = new THREE.Mesh(wheelGeo, wheelMat);
+        wheelMesh.rotation.y = Math.PI / 2;
+        wheelMesh.rotation.x = -Math.PI / 2;
+        wheelMesh.position.set(wheel.pos.x, wheel.pos.y, wheel.pos.z);
+        wheelMesh.userData = {
+            norm: wheel.norm.clone(),
+            diam: wheel.diam,
+            frontAngles,
+            backAngles,
+        };
+
+        wheelMesh.scale.set(aspect, 1, 1);
+
+        wheelGroup.add(wheelMesh);
+        activeWheelMeshes.push(wheelMesh);
+
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            wheel.pos,
+            wheel.pos.clone().add(wheel.norm.clone().multiplyScalar(0.5))
+        ]);
+
+        let color = 0xFF0000;
+        const lineMat = new THREE.LineBasicMaterial({ color });
+        const line = new THREE.Line(lineGeo, lineMat);
+        wheelGroup.add(line);
+    });
+
+    return wheelGroup ;
+}
+
 function decodePCX(arrayBuffer) {
     const bytes = new Uint8Array(arrayBuffer);
     const view = new DataView(arrayBuffer);
@@ -356,41 +436,6 @@ function getSubTexture(sourceTexture, x1, y1, x2, y2) {
     return subTexture;
 }
 
-function createWheelPlates(wheels, wheelTextures){
-    const wheelGroup = new THREE.Group();
-
-    wheels.forEach((wheel) => {
-        const wheelTexture = wheelTextures.front1;
-
-        const aspect = wheelTexture.image.width / wheelTexture.image.height;
-        const wheelGeo = new THREE.PlaneGeometry(aspect*wheel.diam, wheel.diam);
-
-        const wheelMat = new THREE.MeshBasicMaterial({
-            map: wheelTexture,
-            transparent: true,
-            side: THREE.DoubleSide
-        });
-
-        const wheelMesh = new THREE.Mesh(wheelGeo, wheelMat);
-        wheelMesh.rotation.y = Math.PI / 2;
-        wheelMesh.rotation.x = -Math.PI / 2;
-        wheelMesh.position.set(wheel.pos.x, wheel.pos.y, wheel.pos.z);
-        wheelGroup.add(wheelMesh);
-
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            wheel.pos,
-            wheel.pos.clone().add(wheel.norm.clone().multiplyScalar(0.5))
-        ]);
-
-        let color = 0xFF0000;
-        const lineMat = new THREE.LineBasicMaterial({ color });
-        const line = new THREE.Line(lineGeo, lineMat);
-        wheelGroup.add(line);
-    });
-
-    return wheelGroup;
-}
-
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color().setRGB( 0.5, 0.5, 0.5 );
@@ -490,9 +535,63 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+const worldCameraQuat = new THREE.Quaternion();
+const parentWorldQuat = new THREE.Quaternion();
+const parentInvQuat = new THREE.Quaternion();
+const wheelWorldPos = new THREE.Vector3();
+const camPos = new THREE.Vector3();
+const viewDir = new THREE.Vector3();
+const wheelWorldNorm = new THREE.Vector3();
+const crossVec = new THREE.Vector3();
+
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
+
+    if (activeWheelMeshes.length > 0) {
+        camera.getWorldQuaternion(worldCameraQuat);
+        camera.getWorldPosition(camPos);
+
+        const parentGroup = activeWheelMeshes[0].parent;
+        if (parentGroup) {
+            parentGroup.getWorldQuaternion(parentWorldQuat);
+            parentInvQuat.copy(parentWorldQuat).invert();
+
+            const targetLocalQuat = parentInvQuat.multiply(worldCameraQuat);
+
+            activeWheelMeshes.forEach((mesh) => {
+                mesh.quaternion.copy(targetLocalQuat);
+                mesh.getWorldPosition(wheelWorldPos);
+                viewDir.subVectors(camPos, wheelWorldPos).normalize();
+
+                wheelWorldNorm.copy(mesh.userData.norm)
+                    .applyQuaternion(parentWorldQuat)
+                    .normalize();
+
+                const dot = wheelWorldNorm.dot(viewDir);
+                const textureList = dot >= 0 ? mesh.userData.frontAngles : mesh.userData.backAngles;
+                const absDot = Math.abs(dot);
+
+                let index = Math.floor((1 - absDot) * 4.99);
+                crossVec.crossVectors(wheelWorldNorm, viewDir);
+
+                if (crossVec.y < 0 && index > 0 && index < 4) {
+                    index = 8 - index;
+                }
+
+                const targetTexture = textureList[index];
+                if (mesh.material.map !== targetTexture) {
+                    mesh.material.map = targetTexture;
+
+                    const aspect = targetTexture.image.width / targetTexture.image.height;
+                    mesh.scale.set(aspect, 1, 1);
+
+                    mesh.material.needsUpdate = true;
+                }
+            });
+        }
+    }
+
     renderer.render(scene, camera);
 }
 

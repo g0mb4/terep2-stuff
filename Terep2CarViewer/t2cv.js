@@ -248,25 +248,25 @@ function createWheelPlates(wheels, wheelTextures){
 
     const frontAngles = [
         wheelTextures.front1,
-        wheelTextures.front2,
-        wheelTextures.front3,
-        wheelTextures.front4,
-        wheelTextures.front5,
-        cloneAndFlipX(wheelTextures.front4),
-        cloneAndFlipX(wheelTextures.front3),
         cloneAndFlipX(wheelTextures.front2),
+        cloneAndFlipX(wheelTextures.front3),
+        cloneAndFlipX(wheelTextures.front4),
+        wheelTextures.front5,
+        wheelTextures.front4,
+        wheelTextures.front3,
+        wheelTextures.front2,
         wheelTextures.front1
     ];
 
     const backAngles = [
         wheelTextures.back1,
-        wheelTextures.back2,
-        wheelTextures.back3,
-        wheelTextures.back4,
-        wheelTextures.front5,
-        cloneAndFlipX(wheelTextures.back4),
-        cloneAndFlipX(wheelTextures.back3),
         cloneAndFlipX(wheelTextures.back2),
+        cloneAndFlipX(wheelTextures.back3),
+        cloneAndFlipX(wheelTextures.back4),
+        wheelTextures.front5,
+        wheelTextures.back4,
+        wheelTextures.back3,
+        wheelTextures.back2,
         wheelTextures.back1
     ];
 
@@ -567,9 +567,8 @@ function animate() {
                 const upComp   = camDir.dot(wheelUp);     // > 0 = camera above
                 const fwdComp  = camDir.dot(wheelForward);// sign = horizontal mirror
 
-                const perpAngle = Math.asin(Math.min(1, Math.abs(axleComp)));
-                let index = Math.round(perpAngle * 8 / Math.PI);
-                index = Math.max(0, Math.min(4, index));
+                let angle = Math.atan2(Math.abs(fwdComp), Math.abs(axleComp));
+                let index = Math.round((angle / (Math.PI / 2)) * 4);
 
                 if (fwdComp < 0 && index > 0 && index < 4) {
                     index = 8 - index;

@@ -243,6 +243,14 @@ function cloneAndFlipY(texture) {
     return flipped;
 }
 
+function cloneAndRotate90(texture) {
+    const rotated = texture.clone();
+    rotated.center.set(0.5, 0.5);
+    rotated.rotation = Math.PI / 2;
+    rotated.needsUpdate = true;
+    return rotated;
+}
+
 function createWheelPlates(wheels, wheelTextures){
     const wheelGroup = new THREE.Group();
 
@@ -270,8 +278,10 @@ function createWheelPlates(wheels, wheelTextures){
         wheelTextures.back1
     ];
 
-    const frontAnglesFlipY = frontAngles.map(cloneAndFlipY);
-    const backAnglesFlipY  = backAngles.map(cloneAndFlipY);
+    //const frontAnglesTop  = frontAnglesTop.map(cloneAndRotate90);
+    //const backAnglesTop  = backAngles.map(cloneAndRotate90);
+    const frontAnglesTop = frontAngles;
+    const backAnglesTop  = backAngles;
 
     wheels.forEach((wheel) => {
         const wheelGeo = new THREE.PlaneGeometry(wheel.diam, wheel.diam);
@@ -290,8 +300,8 @@ function createWheelPlates(wheels, wheelTextures){
             diam: wheel.diam,
             frontAngles,
             backAngles,
-            frontAnglesFlipY,
-            backAnglesFlipY,
+            frontAnglesTop,
+            backAnglesTop,
         };
 
         wheelGroup.add(wheelMesh);
@@ -575,29 +585,29 @@ function animate() {
                 }
 
                 const useBack = axleComp < 0;
-                const flipY   = upComp   > 0;
+                const useUp   = upComp   > 0;   // do wee need this?
 
                 const list =
                     useBack
-                        ? (flipY ? mesh.userData.backAnglesFlipY  : mesh.userData.backAngles)
-                        : (flipY ? mesh.userData.frontAnglesFlipY : mesh.userData.frontAngles);
+                        ? (useUp ? mesh.userData.backAnglesTop  : mesh.userData.backAngles)
+                        : (useUp ? mesh.userData.frontAnglesTop : mesh.userData.frontAngles);
 
                 const targetTexture = list[index];
                 if (mesh.material.map !== targetTexture) {
                     mesh.material.map = targetTexture;
                     mesh.material.needsUpdate = true;
                 }
-                const aspect = targetTexture.image.width / targetTexture.image.height;
+                let aspect = targetTexture.image.width / targetTexture.image.height;
                 mesh.scale.set(aspect, 1, 1);
 
-                zAxis.copy(camDir).addScaledVector(wheelUp, -camDir.dot(wheelUp));
-                if (zAxis.lengthSq() < 1e-8) {
-                    zAxis.copy(wheelForward);
-                } else {
-                    zAxis.normalize();
+                zAxis.copy(camDir).normalize();
+                yAxis.copy(wheelUp).addScaledVector(zAxis, -wheelUp.dot(zAxis));
+                if (yAxis.lengthSq() < 1e-8) {
+                    yAxis.copy(wheelForward).addScaledVector(zAxis, -wheelForward.dot(zAxis));
                 }
-                xAxis.crossVectors(wheelUp, zAxis).normalize();
-                yAxis.copy(wheelUp);
+                yAxis.normalize();
+                xAxis.crossVectors(yAxis, zAxis).normalize();
+
                 basis.makeBasis(xAxis, yAxis, zAxis);
                 wheelWorldQuat.setFromRotationMatrix(basis);
                 mesh.quaternion.copy(parentInvQuat).multiply(wheelWorldQuat);

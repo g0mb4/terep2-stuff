@@ -57,7 +57,7 @@ function parseDat(arrayBuffer) {
             x: view.getInt32(p1Offset, true),
             y: view.getInt32(p1Offset + 4, true),
             z: view.getInt32(p1Offset + 8, true),
-            diameter: view.getInt32(p1Offset + 22, true),
+            radius: view.getInt32(p1Offset + 22, true),
             type: view.getUint16(p1Offset + 26, true)
         };
 
@@ -191,11 +191,11 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         }
 
         if (pt.type === POINT.WHEEL_FRONT || pt.type === POINT.WHEEL_REAR) {
-            if (pt.diameter <= 0) return
+            if (pt.radius <= 0) return
 
             const wheel = {
                 pos: new THREE.Vector3(posX, posY, posZ),
-                diam: (pt.diameter / MODEL_SCALE)*2,
+                diam: (pt.radius / MODEL_SCALE)*2,
                 norm: new THREE.Vector3(posX < 0 ? -1 : 1, 0, 0),
             };
 
@@ -243,12 +243,33 @@ function cloneAndFlipY(texture) {
     return flipped;
 }
 
-function cloneAndRotate90(texture) {
-    const rotated = texture.clone();
-    rotated.center.set(0.5, 0.5);
-    rotated.rotation = Math.PI / 2;
-    rotated.needsUpdate = true;
-    return rotated;
+function applyRedTint(textureIn, redBoost = 50) {
+    const texture = textureIn.clone();
+    const image = texture.image;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] > 0) {
+            data[i] = Math.min(255, data[i] + redBoost);
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    // Update Three.js texture
+    texture.image = canvas;
+    texture.needsUpdate = true;
+
+    return texture;
 }
 
 function createWheelPlates(wheels, wheelTextures){
@@ -278,11 +299,6 @@ function createWheelPlates(wheels, wheelTextures){
         wheelTextures.back1
     ];
 
-    //const frontAnglesTop  = frontAnglesTop.map(cloneAndRotate90);
-    //const backAnglesTop  = backAngles.map(cloneAndRotate90);
-    const frontAnglesTop = frontAngles;
-    const backAnglesTop  = backAngles;
-
     wheels.forEach((wheel) => {
         const wheelGeo = new THREE.PlaneGeometry(wheel.diam, wheel.diam);
 
@@ -300,8 +316,6 @@ function createWheelPlates(wheels, wheelTextures){
             diam: wheel.diam,
             frontAngles,
             backAngles,
-            frontAnglesTop,
-            backAnglesTop,
         };
 
         wheelGroup.add(wheelMesh);
@@ -420,22 +434,28 @@ function parsePCXTexture(arrayBuffer) {
     return texture;
 }
 
-function getSubTexture(sourceTexture, x1, y1, x2, y2) {
+function getSubTexture(sourceTexture, x1, y1, x2, y2, widthPad = 0, heightPad = 0) {
     const sourceCanvas = sourceTexture.image;
-    const width = x2 - x1 + 1;
-    const height = y2 - y1 + 1;
+    const cropWidth = x2 - x1 + 1;
+    const cropHeight = y2 - y1 + 1;
+
+    const targetWidth = Math.max(cropWidth, widthPad);
+    const targetHeight = Math.max(cropHeight, heightPad);
+
+    const offsetX = Math.floor((targetWidth - cropWidth) / 2);
+    const offsetY = Math.floor((targetHeight - cropHeight) / 2);
 
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
 
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
     ctx.drawImage(
         sourceCanvas,
-        x1, y1, width, height,
-        0, 0, width, height
+        x1, y1, cropWidth, cropHeight,
+        offsetX, offsetY, cropWidth, cropHeight
     );
 
     const subTexture = new THREE.CanvasTexture(canvas);
@@ -492,15 +512,15 @@ async function loadCar(datFile, pcxFile) {
 
         const texture = parsePCXTexture(pcxBuffer);
         const wheelTextures = {
-            front1 : getSubTexture(texture, 118, 2, 148, 32),
-            front2 : getSubTexture(texture, 150, 2, 178, 32),
-            front3 : getSubTexture(texture, 180, 2, 205, 32),
-            front4 : getSubTexture(texture, 207, 2, 225, 32),
-            front5 : getSubTexture(texture, 227, 2, 238, 32),
-            back1 : getSubTexture(texture, 118, 34, 147, 63),
-            back2 : getSubTexture(texture, 149, 34, 177, 63),
-            back3 : getSubTexture(texture, 179, 34, 204, 63),
-            back4 : getSubTexture(texture, 206, 34, 225, 63),
+            front1 : getSubTexture(texture, 118, 2, 148, 32, 31, 31),
+            front2 : getSubTexture(texture, 150, 2, 178, 32, 31, 31),
+            front3 : getSubTexture(texture, 180, 2, 205, 32, 31, 31),
+            front4 : getSubTexture(texture, 207, 2, 225, 32, 31, 31),
+            front5 : getSubTexture(texture, 227, 2, 238, 32, 31, 31),
+            back1 : getSubTexture(texture, 118, 34, 147, 63, 31, 31),
+            back2 : getSubTexture(texture, 149, 34, 177, 63, 31, 31),
+            back3 : getSubTexture(texture, 179, 34, 204, 63, 31, 31),
+            back4 : getSubTexture(texture, 206, 34, 225, 63, 31, 31),
         }
 
         const { driveMode, mesh, wheels } = parseDat(datBuffer);
@@ -574,7 +594,6 @@ function animate() {
                 wheelForward.crossVectors(axle, wheelUp).normalize();
 
                 const axleComp = camDir.dot(axle);        // > 0 = front side
-                const upComp   = camDir.dot(wheelUp);     // > 0 = camera above
                 const fwdComp  = camDir.dot(wheelForward);// sign = horizontal mirror
 
                 let angle = Math.atan2(Math.abs(fwdComp), Math.abs(axleComp));
@@ -585,20 +604,12 @@ function animate() {
                 }
 
                 const useBack = axleComp < 0;
-                const useUp   = upComp   > 0;   // do wee need this?
-
-                const list =
-                    useBack
-                        ? (useUp ? mesh.userData.backAnglesTop  : mesh.userData.backAngles)
-                        : (useUp ? mesh.userData.frontAnglesTop : mesh.userData.frontAngles);
-
+                const list = useBack ? mesh.userData.backAngles : mesh.userData.frontAngles;
                 const targetTexture = list[index];
                 if (mesh.material.map !== targetTexture) {
                     mesh.material.map = targetTexture;
                     mesh.material.needsUpdate = true;
                 }
-                let aspect = targetTexture.image.width / targetTexture.image.height;
-                mesh.scale.set(aspect, 1, 1);
 
                 zAxis.copy(camDir).normalize();
                 yAxis.copy(wheelUp).addScaledVector(zAxis, -wheelUp.dot(zAxis));

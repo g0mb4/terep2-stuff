@@ -9,10 +9,18 @@ import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
 const statusEl = document.getElementById('status');
 const toggleBtn = document.getElementById('toggle-btn');
+const cbShowCam = document.getElementById('show-cam');
+const cbShowSusp = document.getElementById('show-susp');
 
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
 
+let points1 = [];
+let points2 = [];
+let points3 = [];
+
+let carBody = new THREE.Group();
+let wheelTextures = null;
 let activeWheelMeshes = [];
 
 const POINT = {
@@ -33,6 +41,9 @@ const SEGMENT = {
 function parseDat(arrayBuffer) {
     const view = new DataView(arrayBuffer);
     let offset = 0;
+    points1 = [];
+    points2 = [];
+    points3 = [];
 
     const header = {
         chunk1_start: view.getUint16(offset, true),
@@ -47,7 +58,6 @@ function parseDat(arrayBuffer) {
     const num_points1 = view.getUint16(p1Offset, true);
     p1Offset += 2;
 
-    const points1 = [];
     const POINT1_SIZE = 4 + 4 + 4 + 10 + 4 + 2;
     
     const geometryPoints = [];
@@ -69,7 +79,6 @@ function parseDat(arrayBuffer) {
     const num_points2 = view.getUint16(p2Offset, true);
     p2Offset += 2;
 
-    const points2 = [];
     const POINT2_SIZE = 14;
 
     for (let i = 0; i < num_points2; i++) {
@@ -86,7 +95,6 @@ function parseDat(arrayBuffer) {
     }
     
     let p3Offset = header.chunk3_start;
-    const points3 = [];
     const fileSize = arrayBuffer.byteLength;
 
     while (p3Offset < fileSize) {
@@ -161,16 +169,13 @@ function parseDat(arrayBuffer) {
         default: throw new Error("Invalid drive mode.");
     }
 
-    const { carBody: mesh, wheels } = createCarMesh(points1, points2);
-
-    return { driveMode, mesh, wheels };
+    return driveMode;
 }
 
 // source:
 // https://github.com/Zi9/Deformers/blob/master/src/Engine/Rendering/DFCarRenderer.c
-export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
-    const carBody = new THREE.Group();
-
+export function createCarMesh(MODEL_SCALE = 10000000.0) {
+    carBody = new THREE.Group();
     const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
 
     const getColor = (hex) => new THREE.Color(hex);
@@ -181,7 +186,16 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         const posY = pt.y / MODEL_SCALE;
         const posZ = pt.z / MODEL_SCALE;
 
-        if (pt.type === POINT.CAMERA) return;
+        if (pt.type === POINT.CAMERA) {
+            if (cbShowCam.checked) {
+                const cubeMat = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+                const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+                cubeMesh.position.set(posX, posY, posZ);
+                carBody.add(cubeMesh);
+            } else {
+                return;
+            }
+        }
 
         if (pt.type === POINT.GEOMETRY) {
             const cubeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
@@ -208,10 +222,42 @@ export function createCarMesh(points1, points2, MODEL_SCALE = 10000000.0) {
         const pB = points1[seg.b];
 
         if (!pA || !pB) return
-        if (seg.type != SEGMENT.NORMAL) return;
-        if (pA.type != POINT.GEOMETRY || pB.type != POINT.GEOMETRY) return;
 
         let color = 0xffffff;
+        if (seg.type == SEGMENT.SUSP_REAR) {
+            if (cbShowSusp.checked) {
+                color = 0xff0000;
+            } else {
+                return;
+            }
+        }
+
+        if (seg.type == SEGMENT.SUSP_FRONT) {
+            if (cbShowSusp.checked) {
+                color = 0xff0000;
+            } else {
+                return;
+            }
+        }
+
+        if (seg.type == SEGMENT.SUSP_EXTRA) {
+            if (cbShowSusp.checked) {
+                color = 0xff0000;
+            } else {
+                return;
+            }
+        }
+
+        if (pA.type == POINT.CAMERA || pB.type == POINT.CAMERA) {
+            if (cbShowCam.checked) {
+                color = 0x00ff00;
+            } else {
+                return;
+            }
+        }
+        //if ((pA.type == POINT.WHEEL_REAR || pB.type == POINT.WHEEL_REAR)) return;
+        //if ((pA.type == POINT.WHEEL_FRONT || pB.type == POINT.WHEEL_FRONT)) return;
+
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
             new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
@@ -243,36 +289,8 @@ function cloneAndFlipY(texture) {
     return flipped;
 }
 
-function applyRedTint(textureIn, redBoost = 50) {
-    const texture = textureIn.clone();
-    const image = texture.image;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(image, 0, 0);
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] > 0) {
-            data[i] = Math.min(255, data[i] + redBoost);
-        }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-
-    // Update Three.js texture
-    texture.image = canvas;
-    texture.needsUpdate = true;
-
-    return texture;
-}
-
 function createWheelPlates(wheels, wheelTextures){
+    activeWheelMeshes = [];
     const wheelGroup = new THREE.Group();
 
     const frontAngles = [
@@ -488,12 +506,26 @@ controls.rotateSpeed = 8;
 controls.zoomSpeed = 8;
 controls.panSpeed = 8;
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
+function addScene() {
+    scene.clear();
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-dirLight.position.set(50, 80, 30);
-scene.add(dirLight);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(50, 80, 30);
+    scene.add(dirLight);
+
+    const { carBody, wheels } = createCarMesh();
+    scene.add(carBody);
+
+    const wheelPlanes = createWheelPlates(wheels, wheelTextures);
+    scene.add(wheelPlanes);
+
+    const axesHelper = new THREE.AxesHelper( 1 );
+    axesHelper.setColors(0xFF0000, 0x00FF00, 0x0000FF);
+    scene.add(axesHelper);
+}
 
 async function loadCar(datFile, pcxFile) {
     try {
@@ -511,7 +543,7 @@ async function loadCar(datFile, pcxFile) {
         ]);
 
         const texture = parsePCXTexture(pcxBuffer);
-        const wheelTextures = {
+        wheelTextures = {
             front1 : getSubTexture(texture, 118, 2, 148, 32, 31, 31),
             front2 : getSubTexture(texture, 150, 2, 178, 32, 31, 31),
             front3 : getSubTexture(texture, 180, 2, 205, 32, 31, 31),
@@ -523,15 +555,9 @@ async function loadCar(datFile, pcxFile) {
             back4 : getSubTexture(texture, 206, 34, 225, 63, 31, 31),
         }
 
-        const { driveMode, mesh, wheels } = parseDat(datBuffer);
-        scene.add(mesh);
+        const driveMode = parseDat(datBuffer);
 
-        const wheelPlates = createWheelPlates(wheels, wheelTextures);
-        scene.add(wheelPlates);
-
-        const axesHelper = new THREE.AxesHelper( 1 );
-        axesHelper.setColors(0xFF0000, 0x00FF00, 0x0000FF);
-        scene.add( axesHelper );
+        addScene();
 
         statusEl.innerHTML = `DAT: ${datFile}<br>` +
                              `PCX: ${pcxFile}<br><br>` +
@@ -636,7 +662,15 @@ export function initTerep2CarViewer(options = {}) {
         datFile = "CAR1.DAT",
         pcxFile = "TESTW.PCX",
     } = options;
-  
+
+    cbShowCam.addEventListener('change', (event) => {
+        addScene();
+    });
+
+    cbShowSusp.addEventListener('change', (event) => {
+        addScene();
+    });
+
     loadCar(datFile, pcxFile);
     animate();
 }

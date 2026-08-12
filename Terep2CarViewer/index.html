@@ -9,36 +9,35 @@
     body { overflow: hidden; background-color: #111; font-family: system-ui, sans-serif; }
     #canvas-container { width: 100vw; height: 100vh; }
     #ui-panel {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      color: #fff;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 14px 18px;
-      border-radius: 8px;
-      font-size: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      user-select: none;
-      font-family: Consolas, "Courier New", monospace;
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: #fff;
+        background: rgba(0, 0, 0, 0.85);
+        padding: 14px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        user-select: none;
+        font-family: Consolas, "Courier New", monospace;
     }
-    #toggle-btn {
-      background: #2a75d3;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 13px;
-      transition: background 0.2s ease;
-      font-family: Consolas, "Courier New", monospace;
+    .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    #toggle-btn:hover {
-      background: #3b86e4;
+    .control-group label {
+        cursor: pointer;
     }
-  </style>
+    .control-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #2a75d3;
+    }
+    </style>
 
   <script type="importmap">
     {
@@ -54,6 +53,14 @@
 
   <div id="ui-panel">
     <div id="status">Loading car ...</div>
+    <div class="control-group">
+        <input type="checkbox" id="show-cam" name="show-cam" />
+        <label for="show-cam">Show camera</label>
+    </div>
+    <div class="control-group">
+        <input type="checkbox" id="show-susp" name="show-susp" />
+        <label for="show-susp">Show suspensions</label>
+    </div>
   </div>
 
   <div id="canvas-container"></div>

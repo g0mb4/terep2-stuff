@@ -9,8 +9,11 @@ import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
 const statusEl = document.getElementById('status');
 const toggleBtn = document.getElementById('toggle-btn');
+// visual debug
 const cbShowCam = document.getElementById('show-cam');
 const cbShowSusp = document.getElementById('show-susp');
+const cbShowWheelNorm = document.getElementById('show-wheelnorm');
+const cbShowAxis = document.getElementById('show-axis');
 
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
@@ -339,11 +342,13 @@ function createWheelPlates(wheels, wheelTextures){
         wheelGroup.add(wheelMesh);
         activeWheelMeshes.push(wheelMesh);
 
-        const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            wheel.pos,
-            wheel.pos.clone().add(wheel.norm.clone().multiplyScalar(0.5))
-        ]);
-        wheelGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xFF0000 })));
+        if (cbShowWheelNorm.checked) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                wheel.pos,
+                wheel.pos.clone().add(wheel.norm.clone().multiplyScalar(0.5))
+            ]);
+            wheelGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xFF0000 })));
+        }
     });
 
     return wheelGroup;
@@ -522,9 +527,11 @@ function addScene() {
     const wheelPlanes = createWheelPlates(wheels, wheelTextures);
     scene.add(wheelPlanes);
 
-    const axesHelper = new THREE.AxesHelper( 1 );
-    axesHelper.setColors(0xFF0000, 0x00FF00, 0x0000FF);
-    scene.add(axesHelper);
+    if (cbShowAxis.checked) {
+        const axesHelper = new THREE.AxesHelper( 1 );
+        axesHelper.setColors(0xFF0000, 0x00FF00, 0x0000FF);
+        scene.add(axesHelper);
+    }
 }
 
 async function loadCar(datFile, pcxFile) {
@@ -668,6 +675,14 @@ export function initTerep2CarViewer(options = {}) {
     });
 
     cbShowSusp.addEventListener('change', (event) => {
+        addScene();
+    });
+
+    cbShowWheelNorm.addEventListener('change', (event) => {
+        addScene();
+    });
+
+    cbShowAxis.addEventListener('change', (event) => {
         addScene();
     });
 

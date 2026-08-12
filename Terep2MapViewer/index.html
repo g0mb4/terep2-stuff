@@ -63,21 +63,37 @@
     import { initTerep2MapViewer } from './t2mv.js';
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
-    const mapName = urlParams.get('mapName');
-    const creator = urlParams.get('creator');
-    const date = urlParams.get('date');
-    let mapFile = urlParams.get('mapFile');
-    let colFile = urlParams.get('colFile');
-    let maptexFile = urlParams.get('maptexFile');
+    let mapName = null;
+    let creator = null;
+    let date = null;
+    let mapFile = null;
+    let colFile = null;
+    let maptexFile = null;
 
-    const map = urlParams.get('map');
-    if (map) {
-        mapFile = `maps/${map}/MAP.PCX`;
-        colFile = `maps/${map}/COL.PCX`;
-        maptexFile = `maps/${map}/MAPTEX.PCX`;
+    if (urlParams.size === 0) {
+        mapName = "Terep2 Original";
+        creator = "Dénes Nagymáthé";
+        date = "1996-05-04";
+        mapFile = "maps/ORIGINAL/MAP.PCX";
+        colFile = "maps/ORIGINAL/COL.PCX";
+        maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
     } else {
-        if (!maptexFile) {
-            maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
+        mapName = urlParams.get('mapName');
+        creator = urlParams.get('creator');
+        date = urlParams.get('date');
+        mapFile = urlParams.get('mapFile');
+        colFile = urlParams.get('colFile');
+        maptexFile = urlParams.get('maptexFile');
+
+        const map = urlParams.get('map');
+        if (map) {
+            mapFile = `maps/${map}/MAP.PCX`;
+            colFile = `maps/${map}/COL.PCX`;
+            maptexFile = `maps/${map}/MAPTEX.PCX`;
+        } else {
+            if (!maptexFile) {
+                maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
+            }
         }
     }
 

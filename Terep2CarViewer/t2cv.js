@@ -533,7 +533,9 @@ async function loadCar(datFile, pcxFile) {
         axesHelper.setColors(0xFF0000, 0x00FF00, 0x0000FF);
         scene.add( axesHelper );
 
-        statusEl.innerHTML = `${driveMode}<br>`
+        statusEl.innerHTML = `DAT: ${datFile}<br>` +
+                             `PCX: ${pcxFile}<br><br>` +
+                             `Drive: ${driveMode}<br>`;
 
         statusEl.innerHTML += "<br> Controls:<br>" +
                               " • Left click + drag to rotate<br>" +

@@ -60,27 +60,23 @@
 
   <script type="module">
     import { initTerep2CarViewer } from './t2cv.js';
-/*
+
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
-    const mapName = urlParams.get('mapName');
-    const creator = urlParams.get('creator');
-    const date = urlParams.get('date');
-    let mapFile = urlParams.get('mapFile');
-    let colFile = urlParams.get('colFile');
-    let maptexFile = urlParams.get('maptexFile');
+    let datFile = null;
+    let pcxFile = null;
 
-    const map = urlParams.get('map');
-    if (map) {
-        mapFile = `maps/${map}/MAP.PCX`;
-        colFile = `maps/${map}/COL.PCX`;
-        maptexFile = `maps/${map}/MAPTEX.PCX`;
+    if (urlParams.size === 0) {
+        datFile = "cars/models/CAR1.DAT";
+        pcxFile = "cars/skins/TEXTURES.PCX";
     } else {
-        if (!maptexFile) {
-            maptexFile = "maps/ORIGINAL/MAPTEX.PCX";
+        datFile = urlParams.get('datFile');
+        pcxFile = urlParams.get('pcxFile');
+        if (!pcxFile) {
+            pcxFile = "cars/skins/TEXTURES.PCX";
         }
     }
-*/
+
     const panel = document.getElementById('ui-panel');
     window.addEventListener('keydown', (event) => {
         if (event.key.toLowerCase() === 'h') {
@@ -91,10 +87,6 @@
             }
         }
     });
-
-    const datFile = "cars/models/CAR1.DAT";
-    //const pcxFile = "cars/skins/TESTW.PCX";
-    const pcxFile = "cars/skins/TEXTURES.PCX";
 
     initTerep2CarViewer({
         datFile: datFile,

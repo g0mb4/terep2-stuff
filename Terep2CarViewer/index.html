@@ -37,6 +37,32 @@
         cursor: pointer;
         accent-color: #2a75d3;
     }
+    .group-box {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* Group Box Title */
+    .group-box-title {
+        padding: 0 4px;
+        color: #888;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Radio Inputs (shares similar styling to your checkboxes) */
+    .control-group input[type="radio"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: #2a75d3;
+    }
     </style>
 
   <script type="importmap">
@@ -69,6 +95,17 @@
         <input type="checkbox" id="show-axis" name="show-axis" checked />
         <label for="show-axis">Show coordinate system</label>
     </div>
+    <fieldset class="group-box">
+        <legend class="group-box-title">Wheel</legend>
+        <div class="control-group">
+            <input type="radio" id="wheel-simple" name="wheel-style" value="simple" checked />
+            <label for="wheel-simple">Simple</label>
+        </div>
+        <div class="control-group">
+            <input type="radio" id="wheel-textured" name="wheel-style" value="textured" />
+            <label for="wheel-textured">Textured (WIP)</label>
+        </div>
+    </fieldset>
   </div>
 
   <div id="canvas-container"></div>

@@ -7,9 +7,8 @@
 import * as THREE from 'three';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
-const statusEl = document.getElementById('status');
-const toggleBtn = document.getElementById('toggle-btn');
-// visual debug
+const panel = document.getElementById('ui-panel');
+const statusEl = document.getElementById('status')
 const cbShowCam = document.getElementById('show-cam');
 const cbShowSusp = document.getElementById('show-susp');
 const cbShowWheelNorm = document.getElementById('show-wheelnorm');
@@ -180,6 +179,7 @@ function parseDat(arrayBuffer) {
 export function createCarMesh(MODEL_SCALE = 10000000.0) {
     carBody = new THREE.Group();
     const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
+    const wheelStyle = document.querySelector('input[name="wheel-style"]:checked')?.value;
 
     const getColor = (hex) => new THREE.Color(hex);
     const wheels = [];
@@ -210,13 +210,50 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
         if (pt.type === POINT.WHEEL_FRONT || pt.type === POINT.WHEEL_REAR) {
             if (pt.radius <= 0) return
 
-            const wheel = {
-                pos: new THREE.Vector3(posX, posY, posZ),
-                diam: (pt.radius / MODEL_SCALE)*2,
-                norm: new THREE.Vector3(posX < 0 ? -1 : 1, 0, 0),
-            };
+            const pos = new THREE.Vector3(posX, posY, posZ);
+            const norm = new THREE.Vector3(posX < 0 ? -1 : 1, 0, 0);
 
-            wheels.push(wheel);
+            if (cbShowWheelNorm.checked) {
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    pos,
+                    pos.clone().add(norm.clone().multiplyScalar(0.5))
+                ]);
+                carBody.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xFF0000 })));
+            }
+
+            if (wheelStyle == "textured") {
+                const wheel = {
+                    pos: new THREE.Vector3(posX, posY, posZ),
+                    diam: (pt.radius / MODEL_SCALE)*2,
+                    norm: norm,
+                };
+
+                wheels.push(wheel);
+            }
+
+            if (wheelStyle == "simple") {
+                const cubeMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
+                const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+                cubeMesh.position.set(posX, posY, posZ);
+                carBody.add(cubeMesh);
+
+                const circleGeo = new THREE.BufferGeometry();
+                const segments = 32;
+                const positions = new Float32Array((segments + 1) * 3);
+
+                for (let i = 0; i <= segments; i++) {
+                    const theta = (i / segments) * Math.PI * 2;
+                    positions[i * 3]     = 0;                                           // x
+                    positions[i * 3 + 1] = Math.cos(theta) * pt.radius / MODEL_SCALE;   // y
+                    positions[i * 3 + 2] = Math.sin(theta) * pt.radius / MODEL_SCALE;   // z
+                }
+
+                circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                const circleMat = new THREE.LineBasicMaterial({ color: 0xFF00FF });
+                const circleLine = new THREE.LineLoop(circleGeo, circleMat);
+                circleLine.position.set(posX, posY, posZ);
+                carBody.add(circleLine);
+            }
         }
     });
 
@@ -341,14 +378,6 @@ function createWheelPlates(wheels, wheelTextures){
 
         wheelGroup.add(wheelMesh);
         activeWheelMeshes.push(wheelMesh);
-
-        if (cbShowWheelNorm.checked) {
-            const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                wheel.pos,
-                wheel.pos.clone().add(wheel.norm.clone().multiplyScalar(0.5))
-            ]);
-            wheelGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xFF0000 })));
-        }
     });
 
     return wheelGroup;
@@ -606,10 +635,7 @@ const basis            = new THREE.Matrix4();
 
 const CAR_UP_LOCAL     = new THREE.Vector3(0, 0, 1);
 
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-
+function drawWheelTextures() {
     if (activeWheelMeshes.length > 0) {
         camera.getWorldPosition(camPos);
         const parentGroup = activeWheelMeshes[0].parent;
@@ -660,7 +686,17 @@ function animate() {
             });
         }
     }
+}
 
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+
+    const wheelStyle = document.querySelector('input[name="wheel-style"]:checked')?.value;
+    if (wheelStyle == "textured") {
+        drawWheelTextures();
+    }
+    
     renderer.render(scene, camera);
 }
 
@@ -685,6 +721,12 @@ export function initTerep2CarViewer(options = {}) {
     cbShowAxis.addEventListener('change', (event) => {
         addScene();
     });
+
+    panel.addEventListener('change', (event) => {
+        if (event.target.name === 'wheel-style') {
+            addScene();
+        }
+    })
 
     loadCar(datFile, pcxFile);
     animate();

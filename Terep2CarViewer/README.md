@@ -16,5 +16,7 @@ python -m http.server
 Use the URL:
 
 ```
-http://127.0.0.1:8000
+http://127.0.0.1:8000/index.html?datFile=cars/models/CAR1.DAT&pcxFile=cars/skins/TEXTURES.PCX
 ```
+
+If `pcxFile` is omitted it is *cars/skins/TEXTURES.PCX*.

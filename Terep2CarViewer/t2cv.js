@@ -353,8 +353,6 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
             const sY = ((pA.y + pB.y) / 2) / MODEL_SCALE;
             const sZ = ((pA.z + pB.z) / 2) / MODEL_SCALE;
 
-            console.log(segmentID.toString());
-
             const textSprite = createTextSprite(segmentID.toString(), "#FFFFFF");
             textSprite.position.set(sX, sY, sZ);
             carBody.add(textSprite);

@@ -80,20 +80,16 @@
   <div id="ui-panel">
     <div id="status">Loading car ...</div>
     <div class="control-group">
+        <input type="checkbox" id="show-axis" name="show-axis" checked />
+        <label for="show-axis">Show coordinate system</label>
+    </div>
+    <div class="control-group">
         <input type="checkbox" id="show-cam" name="show-cam" />
         <label for="show-cam">Show camera</label>
     </div>
     <div class="control-group">
         <input type="checkbox" id="show-susp" name="show-susp" />
         <label for="show-susp">Show suspensions</label>
-    </div>
-    <div class="control-group">
-        <input type="checkbox" id="show-wheelnorm" name="show-wheelnorm" checked />
-        <label for="show-wheelnorm">Show wheel normals</label>
-    </div>
-    <div class="control-group">
-        <input type="checkbox" id="show-axis" name="show-axis" checked />
-        <label for="show-axis">Show coordinate system</label>
     </div>
     <fieldset class="group-box">
         <legend class="group-box-title">Wheel</legend>
@@ -104,6 +100,21 @@
         <div class="control-group">
             <input type="radio" id="wheel-textured" name="wheel-style" value="textured" />
             <label for="wheel-textured">Textured (WIP)</label>
+        </div>
+    </fieldset>
+    <div class="control-group">
+        <input type="checkbox" id="show-wheelnorm" name="show-wheelnorm" />
+        <label for="show-wheelnorm">Show wheel normals</label>
+    </div>
+    <fieldset class="group-box">
+        <legend class="group-box-title">Vertices</legend>
+        <div class="control-group">
+            <input type="radio" id="vertex-cube" name="vertex-style" value="cube" checked />
+            <label for="vertex-cube">Cube</label>
+        </div>
+        <div class="control-group">
+            <input type="radio" id="vertex-label" name="vertex-style" value="label" />
+            <label for="vertex-label">Label</label>
         </div>
     </fieldset>
   </div>

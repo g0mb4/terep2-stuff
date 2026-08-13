@@ -174,20 +174,42 @@ function parseDat(arrayBuffer) {
     return driveMode;
 }
 
+function createTextSprite(text, color) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 128;
+    canvas.height = 128;
+
+    ctx.fillStyle = color;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+
+    return sprite;
+}
+
 // source:
 // https://github.com/Zi9/Deformers/blob/master/src/Engine/Rendering/DFCarRenderer.c
 export function createCarMesh(MODEL_SCALE = 10000000.0) {
     carBody = new THREE.Group();
     const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
     const wheelStyle = document.querySelector('input[name="wheel-style"]:checked')?.value;
+    const vertexStyle = document.querySelector('input[name="vertex-style"]:checked')?.value;
 
     const getColor = (hex) => new THREE.Color(hex);
     const wheels = [];
+    let vertexID = -1;
 
     points1.forEach((pt) => {
         const posX = pt.x / MODEL_SCALE;
         const posY = pt.y / MODEL_SCALE;
         const posZ = pt.z / MODEL_SCALE;
+        vertexID += 1;
 
         if (pt.type === POINT.CAMERA) {
             if (cbShowCam.checked) {
@@ -201,10 +223,18 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
         }
 
         if (pt.type === POINT.GEOMETRY) {
-            const cubeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-            const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-            cubeMesh.position.set(posX, posY, posZ);
-            carBody.add(cubeMesh);
+            if (vertexStyle == "cube") {
+                const cubeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+                cubeMesh.position.set(posX, posY, posZ);
+                carBody.add(cubeMesh);
+            }
+
+            if (vertexStyle == "label") {
+                const textSprite = createTextSprite(vertexID.toString(), "#000000");
+                textSprite.position.set(posX, posY, posZ);
+                carBody.add(textSprite);
+            }
         }
 
         if (pt.type === POINT.WHEEL_FRONT || pt.type === POINT.WHEEL_REAR) {
@@ -232,10 +262,18 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
             }
 
             if (wheelStyle == "simple") {
-                const cubeMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
-                const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-                cubeMesh.position.set(posX, posY, posZ);
-                carBody.add(cubeMesh);
+                if (vertexStyle == "cube") {
+                    const cubeMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
+                    const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+                    cubeMesh.position.set(posX, posY, posZ);
+                    carBody.add(cubeMesh);
+                }
+
+                if (vertexStyle == "label") {
+                    const textSprite = createTextSprite(vertexID.toString(), "#FF00FF");
+                    textSprite.position.set(posX, posY, posZ);
+                    carBody.add(textSprite);
+                }
 
                 const circleGeo = new THREE.BufferGeometry();
                 const segments = 32;
@@ -724,6 +762,9 @@ export function initTerep2CarViewer(options = {}) {
 
     panel.addEventListener('change', (event) => {
         if (event.target.name === 'wheel-style') {
+            addScene();
+        }
+        if (event.target.name === 'vertex-style') {
             addScene();
         }
     })

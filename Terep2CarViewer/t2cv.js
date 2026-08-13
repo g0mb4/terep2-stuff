@@ -686,6 +686,7 @@ const basis            = new THREE.Matrix4();
 
 const CAR_UP_LOCAL     = new THREE.Vector3(0, 0, 1);
 
+// TODO: fix this
 function drawWheelTextures() {
     if (activeWheelMeshes.length > 0) {
         camera.getWorldPosition(camPos);

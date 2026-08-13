@@ -13,6 +13,7 @@ const cbShowCam = document.getElementById('show-cam');
 const cbShowSusp = document.getElementById('show-susp');
 const cbShowWheelNorm = document.getElementById('show-wheelnorm');
 const cbShowAxis = document.getElementById('show-axis');
+const cbShowSegmentId = document.getElementById('show-seg-id');
 
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
@@ -295,11 +296,13 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
         }
     });
 
+    let segmentID = -1;
     points2.forEach((seg) => {
         const pA = points1[seg.a];
         const pB = points1[seg.b];
+        segmentID += 1;
 
-        if (!pA || !pB) return
+        if (!pA || !pB) return;
 
         let color = 0xffffff;
         if (seg.type == SEGMENT.SUSP_REAR) {
@@ -344,6 +347,18 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
         const lineMat = new THREE.LineBasicMaterial({ color });
         const line = new THREE.Line(lineGeo, lineMat);
         carBody.add(line);
+
+        if (cbShowSegmentId.checked) {
+            const sX = ((pA.x + pB.x) / 2) / MODEL_SCALE;
+            const sY = ((pA.y + pB.y) / 2) / MODEL_SCALE;
+            const sZ = ((pA.z + pB.z) / 2) / MODEL_SCALE;
+
+            console.log(segmentID.toString());
+
+            const textSprite = createTextSprite(segmentID.toString(), "#FFFFFF");
+            textSprite.position.set(sX, sY, sZ);
+            carBody.add(textSprite);
+        }
     });
 
     return { carBody, wheels };
@@ -768,6 +783,10 @@ export function initTerep2CarViewer(options = {}) {
             addScene();
         }
     })
+
+    cbShowSegmentId.addEventListener('change', (event) => {
+        addScene();
+    });
 
     loadCar(datFile, pcxFile);
     animate();

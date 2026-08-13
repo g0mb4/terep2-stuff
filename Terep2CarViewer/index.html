@@ -94,6 +94,10 @@
     <fieldset class="group-box">
         <legend class="group-box-title">Wheel</legend>
         <div class="control-group">
+            <input type="radio" id="wheel-none" name="wheel-style" value="none" />
+            <label for="wheel-none">None</label>
+        </div>
+        <div class="control-group">
             <input type="radio" id="wheel-simple" name="wheel-style" value="simple" checked />
             <label for="wheel-simple">Simple</label>
         </div>
@@ -108,6 +112,10 @@
     </div>
     <fieldset class="group-box">
         <legend class="group-box-title">Vertices</legend>
+         <div class="control-group">
+            <input type="radio" id="vertex-none" name="vertex-style" value="none" />
+            <label for="vertex-none">None</label>
+        </div>
         <div class="control-group">
             <input type="radio" id="vertex-cube" name="vertex-style" value="cube" checked />
             <label for="vertex-cube">Cube</label>
@@ -117,6 +125,10 @@
             <label for="vertex-label">Label</label>
         </div>
     </fieldset>
+     <div class="control-group">
+        <input type="checkbox" id="show-seg-id" name="show-seg-id" />
+        <label for="show-seg-id">Show segment IDs</label>
+    </div>
   </div>
 
   <div id="canvas-container"></div>

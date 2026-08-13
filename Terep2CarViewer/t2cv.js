@@ -169,7 +169,7 @@ function parseDat(arrayBuffer) {
         case 0: driveMode = "RWD"; break;
         case 1: driveMode = "FWD"; break;
         case 2: driveMode = "AWD"; break;
-        default: throw new Error("Invalid drive mode.");
+        default: driveMode = "??"; break;
     }
 
     return driveMode;

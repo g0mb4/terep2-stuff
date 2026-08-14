@@ -5,7 +5,7 @@
 */
 
 import * as THREE from 'three';
-import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const MAP_SIZE = 256;   // map dimension
 const TILE_SIZE = 16;   // 16x16 tile in MAPTEX.PCX
@@ -278,10 +278,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 container.appendChild(renderer.domElement);
 
-const controls = new TrackballControls(camera, renderer.domElement);
-controls.rotateSpeed = 8;
-controls.zoomSpeed = 8;
-controls.panSpeed = 8;
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);

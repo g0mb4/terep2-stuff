@@ -10,8 +10,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const MAP_SIZE = 256;   // map dimension
 const TILE_SIZE = 16;   // 16x16 tile in MAPTEX.PCX
 
+const panel = document.getElementById('ui-panel');
 const statusEl = document.getElementById('status');
-const toggleBtn = document.getElementById('toggle-btn');
 
 function decodePCX(arrayBuffer) {
     const bytes = new Uint8Array(arrayBuffer);
@@ -327,16 +327,16 @@ async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
         mesh.rotation.x = -Math.PI / 2;
         scene.add(mesh);
 
-        let usingTileMap = false;
-        toggleBtn.style.display = 'block';
+        panel.addEventListener('change', (event) => {
+            if (event.target.value == 'col') {
+                material.map = colTexture;
+            }
 
-        toggleBtn.addEventListener('click', () => {
-            usingTileMap = !usingTileMap;
-            material.map = usingTileMap ? tileMap : colTexture;
+            if (event.target.value == 'maptex') {
+                material.map = tileMap;
+            }
+
             material.needsUpdate = true;
-            toggleBtn.innerText = usingTileMap
-                ? 'Switch to COL.PCX'
-                : 'Switch to MAPTEX.PCX';
         });
 
         if (creator) {

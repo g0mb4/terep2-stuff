@@ -264,6 +264,11 @@ function createGeometry(heights, scale, heightScale) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.computeVertexNormals();
 
+    const count = totalVertices;
+    geometry.clearGroups();
+    geometry.addGroup(0, count, 0); // Front material
+    geometry.addGroup(0, count, 1); // Back material
+
     return geometry;
 }
 
@@ -316,27 +321,36 @@ async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
         const heightScale = 0.016;
         const geometry = createGeometry(heights, scale, heightScale);
 
-        const material = new THREE.MeshStandardMaterial({
+        const frontMaterial = new THREE.MeshStandardMaterial({
             map: colTexture,
             roughness: 0.9,
             wireframe: false,
-            flatShading: true
+            flatShading: true,
+            side: THREE.FrontSide
         });
 
-        const mesh = new THREE.Mesh(geometry, material);
+        const backMaterial = new THREE.MeshStandardMaterial({
+            color: 0xF0F0F0,
+            roughness: 0.9,
+            wireframe: false,
+            flatShading: true,
+            side: THREE.BackSide
+        });
+
+        const mesh = new THREE.Mesh(geometry, [frontMaterial, backMaterial]);
         mesh.rotation.x = -Math.PI / 2;
         scene.add(mesh);
 
         panel.addEventListener('change', (event) => {
             if (event.target.value == 'col') {
-                material.map = colTexture;
+                frontMaterial.map = colTexture;
             }
 
             if (event.target.value == 'maptex') {
-                material.map = tileMap;
+                frontMaterial.map = tileMap;
             }
 
-            material.needsUpdate = true;
+            frontMaterial.needsUpdate = true;
         });
 
         if (creator) {

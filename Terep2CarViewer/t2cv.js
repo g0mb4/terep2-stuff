@@ -14,9 +14,11 @@ const cbShowSusp = document.getElementById('show-susp');
 const cbShowWheelNorm = document.getElementById('show-wheelnorm');
 const cbShowAxis = document.getElementById('show-axis');
 const cbShowSegmentId = document.getElementById('show-seg-id');
+const cbShowBodyTex = document.getElementById('show-body-tex');
 
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
+const MODEL_SCALE = 10000000.0;
 
 let points1 = [];
 let points2 = [];
@@ -24,6 +26,7 @@ let points3 = [];
 
 let carBody = new THREE.Group();
 let wheelTextures = null;
+let bodyTextures = null;
 let activeWheelMeshes = [];
 
 const POINT = {
@@ -39,6 +42,163 @@ const SEGMENT = {
     SUSP_REAR: 4 | 6,
     SUSP_FRONT: 10 | 12 
 };
+
+function cloneAndFlipX(texture) {
+    const flipped = texture.clone();
+    flipped.wrapS = THREE.RepeatWrapping;
+    flipped.repeat.x = -1;
+    flipped.offset.x = 1;
+    flipped.needsUpdate = true;
+    return flipped;
+}
+
+function cloneAndFlipY(texture) {
+    const flipped = texture.clone();
+    flipped.wrapT = THREE.RepeatWrapping;
+    flipped.repeat.y = -1;
+    flipped.offset.y = 1;
+    flipped.needsUpdate = true;
+    return flipped;
+}
+
+function getSubTexture(sourceTexture, x1, y1, x2, y2, widthPad = 0, heightPad = 0) {
+    const sourceCanvas = sourceTexture.image;
+    const cropWidth = x2 - x1 + 1;
+    const cropHeight = y2 - y1 + 1;
+
+    const targetWidth = Math.max(cropWidth, widthPad);
+    const targetHeight = Math.max(cropHeight, heightPad);
+
+    const offsetX = Math.floor((targetWidth - cropWidth) / 2);
+    const offsetY = Math.floor((targetHeight - cropHeight) / 2);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+        sourceCanvas,
+        x1, y1, cropWidth, cropHeight,
+        offsetX, offsetY, cropWidth, cropHeight
+    );
+
+    const subTexture = new THREE.CanvasTexture(canvas);
+    subTexture.colorSpace = sourceTexture.colorSpace;
+    subTexture.magFilter = THREE.NearestFilter;
+    subTexture.minFilter = THREE.NearestFilter;
+    subTexture.wrapS = THREE.ClampToEdgeWrapping;
+    subTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+    subTexture.needsUpdate = true;
+
+    return subTexture;
+}
+
+function decodePCX(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const view = new DataView(arrayBuffer);
+
+    const HEADER_SIZE = 128;
+    const PALETTE_SIZE = 768;
+
+    const id = bytes[0];
+    const version = bytes[1];
+    const encoding = bytes[2];
+    const bpp = bytes[3];
+    const colorPlanes = bytes[65];
+
+    if (id !== 0x0A || version !== 5 || encoding !== 1 || bpp !== 8 || colorPlanes !== 1) {
+        throw new Error("Invalid PCX file.");
+    }
+
+    const minX = view.getUint16(4, true);
+    const minY = view.getUint16(6, true);
+    const maxX = view.getUint16(8, true);
+    const maxY = view.getUint16(10, true);
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    if (width != SKIN_WIDTH || height != SKIN_HEIGHT) {
+        throw new Error("Invalid PCX dimensions.");
+    }
+
+    const bytesPerLine = view.getUint16(66, true);
+
+    const paletteOffset = bytes.length - PALETTE_SIZE;
+    const palette = new Uint8Array(PALETTE_SIZE);
+    for (let i = 0; i < PALETTE_SIZE; i++) {
+        palette[i] = bytes[paletteOffset + i];
+    }
+
+    let offset = HEADER_SIZE;
+    const indices = new Uint8Array(width * height);
+    const RLE_COUNT_MASK = 0xC0; 
+
+    for (let y = 0; y < height; y++) {
+        let x = 0;
+        let scanlineBytes = 0;
+
+        while (scanlineBytes < bytesPerLine) {
+            let bytee = bytes[offset++];
+            let count = 1;
+
+            if ((bytee & RLE_COUNT_MASK) === RLE_COUNT_MASK) {
+                count = bytee & ~RLE_COUNT_MASK;
+                bytee = bytes[offset++];
+            }
+
+            for (let j = 0; j < count; j++) {
+                if (x < width) {
+                    indices[y * width + x] = bytee;
+                }
+                x++;
+                scanlineBytes++;
+            }
+        }
+    }
+
+    return { indices, palette };
+}
+
+function parsePCXTexture(arrayBuffer) {
+    const { indices, palette } = decodePCX(arrayBuffer);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = SKIN_WIDTH;
+    canvas.height = SKIN_HEIGHT;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(SKIN_WIDTH, SKIN_HEIGHT);
+
+    for (let i = 0; i < SKIN_WIDTH * SKIN_HEIGHT; i++) {
+        const colorIdx = indices[i];
+        const pixelIdx = i * 4;
+        imgData.data[pixelIdx]     = palette[colorIdx * 3];         // R
+        imgData.data[pixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
+        imgData.data[pixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
+
+        // last color is transparent
+        if (colorIdx == 255) {
+            imgData.data[pixelIdx + 3] = 0;                         // A
+        } else {
+            imgData.data[pixelIdx + 3] = 255;                       // A
+        }
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.flipY = false;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+
+    return texture;
+}
 
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c 
 function parseDat(arrayBuffer) {
@@ -196,7 +356,7 @@ function createTextSprite(text, color) {
 
 // source:
 // https://github.com/Zi9/Deformers/blob/master/src/Engine/Rendering/DFCarRenderer.c
-export function createCarMesh(MODEL_SCALE = 10000000.0) {
+export function createCarMesh() {
     carBody = new THREE.Group();
     const cubeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.05);
     const wheelStyle = document.querySelector('input[name="wheel-style"]:checked')?.value;
@@ -359,25 +519,120 @@ export function createCarMesh(MODEL_SCALE = 10000000.0) {
         }
     });
 
+    // TODO: vertex indices are hard coded, not from the .DAT file
+    if (cbShowBodyTex.checked) {
+        // front
+        {
+            const p1 = points1[6];
+            const p2 = points1[7];
+            const p3 = points1[22];
+            const p4 = points1[23];
+
+            const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
+            const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
+            const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+
+            const vertices = new Float32Array([
+                v1.x, v1.y, v1.z,
+                v2.x, v2.y, v2.z,
+                v3.x, v3.y, v3.z,
+                v4.x, v4.y, v4.z
+            ]);
+
+            const uvs = new Float32Array([
+                0, 0,
+                1, 0,
+                0, 1,
+                1, 1
+            ]);
+
+            const indices = [
+                0, 2, 1,
+                2, 3, 1
+            ];
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            geometry.clearGroups();
+            geometry.addGroup(0, 4*2, 0);
+            geometry.addGroup(0, 4*2, 1);
+
+            const frontMaterial = new THREE.MeshStandardMaterial({ 
+                map: bodyTextures.front, 
+                side: THREE.FrontSide
+            });
+
+            const backMaterial = new THREE.MeshStandardMaterial({
+                color: 0xF0F0F0,
+                flatShading: true,
+                side: THREE.BackSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, [frontMaterial, backMaterial]);
+            carBody.add(mesh);
+        }
+
+        // back
+        {
+            const p1 = points1[8];
+            const p2 = points1[9];
+            const p3 = points1[4];
+            const p4 = points1[5];
+
+            const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
+            const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
+            const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+
+            const vertices = new Float32Array([
+                v1.x, v1.y, v1.z,
+                v2.x, v2.y, v2.z,
+                v3.x, v3.y, v3.z,
+                v4.x, v4.y, v4.z
+            ]);
+
+            const uvs = new Float32Array([
+                0, 1,
+                1, 1,
+                0, 0,
+                1, 0
+            ]);
+
+            const indices = [
+                0, 2, 1,
+                2, 3, 1
+            ];
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            geometry.clearGroups();
+            geometry.addGroup(0, 4*2, 0);
+            geometry.addGroup(0, 4*2, 1);
+
+            const frontMaterial = new THREE.MeshStandardMaterial({ 
+                map: bodyTextures.back, 
+                side: THREE.FrontSide
+            });
+
+            const backMaterial = new THREE.MeshStandardMaterial({
+                color: 0xF0F0F0,
+                flatShading: true,
+                side: THREE.BackSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, [frontMaterial, backMaterial]);
+            carBody.add(mesh);
+        }
+    }
+
     return { carBody, wheels };
-}
-
-function cloneAndFlipX(texture) {
-    const flipped = texture.clone();
-    flipped.wrapS = THREE.RepeatWrapping;
-    flipped.repeat.x = -1;
-    flipped.offset.x = 1;
-    flipped.needsUpdate = true;
-    return flipped;
-}
-
-function cloneAndFlipY(texture) {
-    const flipped = texture.clone();
-    flipped.wrapT = THREE.RepeatWrapping;
-    flipped.repeat.y = -1;
-    flipped.offset.y = 1;
-    flipped.needsUpdate = true;
-    return flipped;
 }
 
 function createWheelPlates(wheels, wheelTextures){
@@ -432,145 +687,6 @@ function createWheelPlates(wheels, wheelTextures){
     });
 
     return wheelGroup;
-}
-
-function decodePCX(arrayBuffer) {
-    const bytes = new Uint8Array(arrayBuffer);
-    const view = new DataView(arrayBuffer);
-
-    const HEADER_SIZE = 128;
-    const PALETTE_SIZE = 768;
-
-    const id = bytes[0];
-    const version = bytes[1];
-    const encoding = bytes[2];
-    const bpp = bytes[3];
-    const colorPlanes = bytes[65];
-
-    if (id !== 0x0A || version !== 5 || encoding !== 1 || bpp !== 8 || colorPlanes !== 1) {
-        throw new Error("Invalid PCX file.");
-    }
-
-    const minX = view.getUint16(4, true);
-    const minY = view.getUint16(6, true);
-    const maxX = view.getUint16(8, true);
-    const maxY = view.getUint16(10, true);
-    const width = maxX - minX + 1;
-    const height = maxY - minY + 1;
-
-    if (width != SKIN_WIDTH || height != SKIN_HEIGHT) {
-        throw new Error("Invalid PCX dimensions.");
-    }
-
-    const bytesPerLine = view.getUint16(66, true);
-
-    const paletteOffset = bytes.length - PALETTE_SIZE;
-    const palette = new Uint8Array(PALETTE_SIZE);
-    for (let i = 0; i < PALETTE_SIZE; i++) {
-        palette[i] = bytes[paletteOffset + i];
-    }
-
-    let offset = HEADER_SIZE;
-    const indices = new Uint8Array(width * height);
-    const RLE_COUNT_MASK = 0xC0; 
-
-    for (let y = 0; y < height; y++) {
-        let x = 0;
-        let scanlineBytes = 0;
-
-        while (scanlineBytes < bytesPerLine) {
-            let bytee = bytes[offset++];
-            let count = 1;
-
-            if ((bytee & RLE_COUNT_MASK) === RLE_COUNT_MASK) {
-                count = bytee & ~RLE_COUNT_MASK;
-                bytee = bytes[offset++];
-            }
-
-            for (let j = 0; j < count; j++) {
-                if (x < width) {
-                    indices[y * width + x] = bytee;
-                }
-                x++;
-                scanlineBytes++;
-            }
-        }
-    }
-
-    return { indices, palette };
-}
-
-function parsePCXTexture(arrayBuffer) {
-    const { indices, palette } = decodePCX(arrayBuffer);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = SKIN_WIDTH;
-    canvas.height = SKIN_HEIGHT;
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.createImageData(SKIN_WIDTH, SKIN_HEIGHT);
-
-    for (let i = 0; i < SKIN_WIDTH * SKIN_HEIGHT; i++) {
-        const colorIdx = indices[i];
-        const pixelIdx = i * 4;
-        imgData.data[pixelIdx]     = palette[colorIdx * 3];         // R
-        imgData.data[pixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
-        imgData.data[pixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
-
-        // last color is transparent
-        if (colorIdx == 255) {
-            imgData.data[pixelIdx + 3] = 0;                         // A
-        } else {
-            imgData.data[pixelIdx + 3] = 255;                       // A
-        }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.flipY = false;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-
-    return texture;
-}
-
-function getSubTexture(sourceTexture, x1, y1, x2, y2, widthPad = 0, heightPad = 0) {
-    const sourceCanvas = sourceTexture.image;
-    const cropWidth = x2 - x1 + 1;
-    const cropHeight = y2 - y1 + 1;
-
-    const targetWidth = Math.max(cropWidth, widthPad);
-    const targetHeight = Math.max(cropHeight, heightPad);
-
-    const offsetX = Math.floor((targetWidth - cropWidth) / 2);
-    const offsetY = Math.floor((targetHeight - cropHeight) / 2);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-
-    ctx.drawImage(
-        sourceCanvas,
-        x1, y1, cropWidth, cropHeight,
-        offsetX, offsetY, cropWidth, cropHeight
-    );
-
-    const subTexture = new THREE.CanvasTexture(canvas);
-    subTexture.colorSpace = sourceTexture.colorSpace;
-    subTexture.magFilter = THREE.NearestFilter;
-    subTexture.minFilter = THREE.NearestFilter;
-    subTexture.wrapS = THREE.ClampToEdgeWrapping;
-    subTexture.wrapT = THREE.ClampToEdgeWrapping;
-
-    subTexture.needsUpdate = true;
-
-    return subTexture;
 }
 
 const container = document.getElementById('canvas-container');
@@ -640,6 +756,15 @@ async function loadCar(datFile, pcxFile) {
             back2 : getSubTexture(texture, 149, 34, 177, 63, 31, 31),
             back3 : getSubTexture(texture, 179, 34, 204, 63, 31, 31),
             back4 : getSubTexture(texture, 206, 34, 225, 63, 31, 31),
+        }
+
+        bodyTextures = {
+            front : getSubTexture(texture, 191, 81, 235, 91),
+            back : getSubTexture(texture, 127, 75, 171, 91),
+            hood : getSubTexture(texture, 191, 92, 235, 143),
+            bottom : getSubTexture(texture, 127, 92, 171, 199),
+            left : getSubTexture(texture, 172, 92, 190, 199),
+            right : getSubTexture(texture, 236, 92, 155, 199),
         }
 
         const driveMode = parseDat(datBuffer);
@@ -784,6 +909,10 @@ export function initTerep2CarViewer(options = {}) {
     })
 
     cbShowSegmentId.addEventListener('change', (event) => {
+        addScene();
+    });
+
+    cbShowBodyTex.addEventListener('change', (event) => {
         addScene();
     });
 

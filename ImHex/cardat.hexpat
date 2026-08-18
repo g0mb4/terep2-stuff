@@ -35,7 +35,7 @@ struct DataPoint1 {
     s32 y;
     s32 z;
     u8 pad4[10];
-    s32 diameter;
+    s32 radius;
     DataPoint1Type type;
 };
 
@@ -66,7 +66,9 @@ struct DataPoint3Type3 {
 
 struct DataPoint3Type4 {
     u8 count;
-    s16 data[count + 2];
+    s16 data[count+1];
+    u8 color1;
+    u8 color2;
 };
 
 struct DataPoint3Type8 {

@@ -781,8 +781,6 @@ export function createCarMesh() {
 
             // TODO: refactor this
             const p1 = points1[pointIndices[0]];
-            console.log(pointIndices[0]);
-            console.log(p1);
             const p2 = points1[pointIndices[1]];
             const p3 = points1[pointIndices[2]];
             const p4 = points1[pointIndices[3]];
@@ -808,6 +806,7 @@ export function createCarMesh() {
             geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
             geometry.computeVertexNormals();
 
+            // TODO: checkboad pattern using color1 and color2
             const material = new THREE.MeshStandardMaterial({
                 color: color1,
                 flatShading: true,

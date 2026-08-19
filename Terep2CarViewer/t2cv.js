@@ -725,18 +725,17 @@ export function createCarMesh() {
                 v22.x, v22.y, v22.z
             ]);
 
-            // TODO: fix this
             const uvs = new Float32Array([
-                0.0, 1.0,
-                0.0, 0.0,
-                0.25, 1.0,
-                0.0, 0.25,
-                0.5, 1.0,
-                0.0, 0.5,
-                0.75, 1.0,
-                0.0, 0.75,
-                1.0, 1.0,
-                1.0, 0.0,
+                1.0, 1.00,
+                0.0, 1.00,
+                1.0, 0.56,
+                0.0, 0.56,
+                1.0, 0.31, 
+                0.0, 0.31,
+                1.0, 0.15,
+                0.0, 0.15,
+                1.0, 0.00,
+                0.0, 0.00,
             ]);
 
             const indices = [
@@ -748,6 +747,71 @@ export function createCarMesh() {
                 5, 7, 6,    // 18, 24, 27
                 8, 6, 7,    // 6, 27, 24
                 7, 9, 8,    // 24, 22, 26
+            ];
+
+            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.right);
+            carBody.add(mesh);
+        }
+
+        // left
+        {
+            const p8 = points1[8];      // 0
+            const p4 = points1[4];      // 1
+            const p16 = points1[16];    // 2
+            const p21 = points1[21];    // 3
+            const p10 = points1[10];    // 4
+            const p19 = points1[19];    // 5
+            const p28 = points1[28];    // 6
+            const p25 = points1[25];    // 7
+            const p7 = points1[7];      // 8
+            const p23 = points1[23];    // 9
+
+            const v8 = new THREE.Vector3(p8.x / MODEL_SCALE, p8.y / MODEL_SCALE, p8.z / MODEL_SCALE);
+            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+            const v16 = new THREE.Vector3(p16.x / MODEL_SCALE, p16.y / MODEL_SCALE, p16.z / MODEL_SCALE);
+            const v21 = new THREE.Vector3(p21.x / MODEL_SCALE, p21.y / MODEL_SCALE, p21.z / MODEL_SCALE);
+            const v10 = new THREE.Vector3(p10.x / MODEL_SCALE, p10.y / MODEL_SCALE, p10.z / MODEL_SCALE);
+            const v19 = new THREE.Vector3(p19.x / MODEL_SCALE, p19.y / MODEL_SCALE, p19.z / MODEL_SCALE);
+            const v28 = new THREE.Vector3(p28.x / MODEL_SCALE, p28.y / MODEL_SCALE, p28.z / MODEL_SCALE);
+            const v25 = new THREE.Vector3(p25.x / MODEL_SCALE, p25.y / MODEL_SCALE, p25.z / MODEL_SCALE);
+            const v7 = new THREE.Vector3(p7.x / MODEL_SCALE, p7.y / MODEL_SCALE, p7.z / MODEL_SCALE);
+            const v23 = new THREE.Vector3(p23.x / MODEL_SCALE, p23.y / MODEL_SCALE, p23.z / MODEL_SCALE);
+
+            const vertices = new Float32Array([
+                v8.x, v8.y, v8.z,
+                v4.x, v4.y, v4.z,
+                v16.x, v16.y, v16.z,
+                v21.x, v21.y, v21.z,
+                v10.x, v10.y, v10.z,
+                v19.x, v19.y, v19.z,
+                v28.x, v28.y, v28.z,
+                v25.x, v25.y, v25.z,
+                v7.x, v7.y, v7.z,
+                v23.x, v23.y, v23.z
+            ]);
+
+            const uvs = new Float32Array([
+                0.0, 1.00,
+                1.0, 1.00,
+                0.0, 0.56,
+                1.0, 0.56,
+                0.0, 0.31, 
+                1.0, 0.31,
+                0.0, 0.15,
+                1.0, 0.15,
+                0.0, 0.00,
+                1.0, 0.00,
+            ]);
+
+            const indices = [
+                0, 2, 1,
+                3, 1, 2,
+                2, 4, 3,
+                5, 3, 4,
+                4, 6, 5,
+                7, 5, 6,
+                6, 8, 7,
+                9, 7, 8,
             ];
 
             const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.left);
@@ -971,8 +1035,8 @@ async function loadCar(datFile, pcxFile) {
             back : getSubTexture(texture, 127, 75, 171, 91),
             hood : getSubTexture(texture, 191, 92, 235, 143),
             bottom : getSubTexture(texture, 127, 92, 171, 199),
-            left : getSubTexture(texture, 172, 92, 190, 199),
-            right : getSubTexture(texture, 236, 92, 155, 199),
+            right : getSubTexture(texture, 172, 92, 190, 199),
+            left : getSubTexture(texture, 236, 92, 255, 199),
         }
 
         const driveMode = parseDat(datBuffer);

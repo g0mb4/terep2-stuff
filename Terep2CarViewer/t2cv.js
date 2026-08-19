@@ -811,6 +811,62 @@ export function createCarMesh() {
             const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.left);
             carBody.add(mesh);
         }
+
+        // bottom
+        {
+            const p4 = points1[4];      // 0
+            const p5 = points1[5];      // 1
+            const p21 = points1[21];    // 2
+            const p20 = points1[20];    // 3
+            const p19 = points1[19];    // 4
+            const p18 = points1[18];    // 5
+            const p25 = points1[25];    // 6
+            const p24 = points1[24];    // 7
+
+            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
+            const v21 = new THREE.Vector3(p21.x / MODEL_SCALE, p21.y / MODEL_SCALE, p21.z / MODEL_SCALE);
+            const v20 = new THREE.Vector3(p20.x / MODEL_SCALE, p20.y / MODEL_SCALE, p20.z / MODEL_SCALE);
+            const v19 = new THREE.Vector3(p19.x / MODEL_SCALE, p19.y / MODEL_SCALE, p19.z / MODEL_SCALE);
+            const v18 = new THREE.Vector3(p18.x / MODEL_SCALE, p18.y / MODEL_SCALE, p18.z / MODEL_SCALE);
+            const v25 = new THREE.Vector3(p25.x / MODEL_SCALE, p25.y / MODEL_SCALE, p25.z / MODEL_SCALE);
+            const v24 = new THREE.Vector3(p24.x / MODEL_SCALE, p24.y / MODEL_SCALE, p24.z / MODEL_SCALE);;
+
+            const vertices = new Float32Array([
+                v4.x, v4.y, v4.z,
+                v5.x, v5.y, v5.z,
+                v21.x, v21.y, v21.z,
+                v20.x, v20.y, v20.z,
+                v19.x, v19.y, v19.z,
+                v18.x, v18.y, v18.z,
+                v25.x, v25.y, v25.z,
+                v24.x, v24.y, v24.z
+            ]);
+
+            // TODO: fix these
+            const uvs = new Float32Array([
+                1.0, 0.00,
+                0.0, 0.00,
+                1.0, 0.25,
+                0.0, 0.25,
+                1.0, 0.75,
+                0.0, 0.75,
+                1.0, 1.00,
+                0.0, 1.00,
+            ]);
+
+            const indices = [
+                1, 0, 2,    //  5,  4, 21
+                2, 3, 1,    // 21, 20,  5
+                3, 2, 4,    // 20, 21, 19
+                4, 5, 3,    // 19, 18, 20
+                5, 4, 6,    // 18, 19, 25
+                6, 7, 5     // 25, 24, 18
+            ];
+
+            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.bottom);
+            carBody.add(mesh);
+        }
     }
 
     if (cbShowBodyCol.checked) {

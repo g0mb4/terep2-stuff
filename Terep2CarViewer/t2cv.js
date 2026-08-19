@@ -206,19 +206,23 @@ function parsePCXTexture(arrayBuffer) {
     return texture;
 }
 
-function getColorFromPalette(colorIdx) {
+function getVec4FromPalette(colorIdx) {
     const pixelIdx = colorIdx * 4;
     const R = globalPalette[colorIdx * 3]     / 255.0;
     const G = globalPalette[colorIdx * 3 + 1] / 255.0;
     const B = globalPalette[colorIdx * 3 + 2] / 255.0;
 
-    let A = 255;
+    let A = 1.0;
     if (colorIdx == 255) {
         A = 0;
     }
 
-    // TODO: A
-    return new THREE.Color().setRGB(R, G, B);
+    // transparent
+    if (colorIdx == 240) {
+        A = 0.2;    // TODO: it is just  aguess
+    }
+
+    return new THREE.Vector4(R, G, B, A);
 }
 
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c
@@ -312,9 +316,9 @@ function parseDat(arrayBuffer) {
                 vertices.push(view.getInt16(p3Offset, true));
                 p3Offset += 2;
             }
-            const color1 = view.getInt8(p3Offset);
+            const color1 = view.getUint8(p3Offset);
             p3Offset += 1;
-            const color2 = view.getInt8(p3Offset)
+            const color2 = view.getUint8(p3Offset)
             p3Offset += 1;
             dataPoint.data = { count, vertices, color1, color2 };
         } else if (type === 8) {
@@ -539,8 +543,29 @@ export function createCarMesh() {
                 return;
             }
         }
-        //if ((pA.type == POINT.WHEEL_REAR || pB.type == POINT.WHEEL_REAR)) return;
-        //if ((pA.type == POINT.WHEEL_FRONT || pB.type == POINT.WHEEL_FRONT)) return;
+
+        // white bars
+        if ((seg.a == 13 && seg.b == 11) || (seg.a == 11 && seg.b == 13)) {
+             const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
+                new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+            ]);
+
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const line = new THREE.Line(lineGeo, lineMat);
+            carBody.add(line);
+        }
+
+        if ((seg.a == 12 && seg.b == 10) || (seg.a == 10 && seg.b == 12)) {
+             const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
+                new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+            ]);
+
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const line = new THREE.Line(lineGeo, lineMat);
+            carBody.add(line);
+        }
 
         if (cbShowSegmentLines.checked) {
             const lineGeo = new THREE.BufferGeometry().setFromPoints([
@@ -885,8 +910,8 @@ export function createCarMesh() {
                 continue;
             }
 
-            const color1 = getColorFromPalette(quadCol.color1);
-            const color2 = getColorFromPalette(quadCol.color2);
+            const color1 = getVec4FromPalette(quadCol.color1);
+            const color2 = getVec4FromPalette(quadCol.color2);
 
             let pointIndices = [];
             for (let j = 0; j < quadCol.vertices.length; ++j) {
@@ -945,8 +970,10 @@ export function createCarMesh() {
 
             // TODO: checkerboard pattern using color1 and color2
             const material = new THREE.MeshStandardMaterial({
-                color: color1,
+                color: new THREE.Color(color1.x, color1.y, color1.z),
                 flatShading: true,
+                opacity: color1.w,
+                transparent: true
             });
 
             const mesh = new THREE.Mesh(geometry, material);

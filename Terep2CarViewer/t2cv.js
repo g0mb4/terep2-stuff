@@ -386,21 +386,14 @@ function createTexturedSurface(vertices, uvs, indices, texture) {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     geometry.clearGroups();
-    geometry.addGroup(0, vertices.length*2, 0);
-    geometry.addGroup(0, vertices.length*2, 1);
 
-    const frontMaterial = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshStandardMaterial({
         map: texture,
-        side: THREE.FrontSide
+        side: THREE.FrontSide,
+        transparent: true,
     });
 
-    const backMaterial = new THREE.MeshStandardMaterial({
-        color: 0xF0F0F0,
-        flatShading: true,
-        side: THREE.BackSide
-    });
-
-    const mesh = new THREE.Mesh(geometry, [frontMaterial, backMaterial]);
+    const mesh = new THREE.Mesh(geometry, material);
     return mesh;
 }
 
@@ -669,12 +662,12 @@ export function createCarMesh() {
             ]);
 
             const uvs = new Float32Array([
-                0.0, 1.0,
-                1.0, 1.0,
-                0.0, 0.5,
-                1.0, 0.5,
+                1.0, 0.0,
                 0.0, 0.0,
-                1.0, 0.0
+                1.0, 0.5,
+                0.0, 0.5,
+                1.0, 1.0,
+                0.0, 1.0
             ]);
 
             const indices = [
@@ -725,17 +718,18 @@ export function createCarMesh() {
                 v22.x, v22.y, v22.z
             ]);
 
+            // NOTE: this can be wrong
             const uvs = new Float32Array([
-                1.0, 1.00,
-                0.0, 1.00,
-                1.0, 0.56,
-                0.0, 0.56,
-                1.0, 0.31, 
-                0.0, 0.31,
-                1.0, 0.15,
-                0.0, 0.15,
-                1.0, 0.00,
                 0.0, 0.00,
+                1.0, 0.00,
+                0.0, 0.26,
+                1.0, 0.26,
+                0.0, 0.50,
+                1.0, 0.50,
+                0.0, 0.90,
+                1.0, 0.90,
+                0.0, 1.00,
+                1.0, 1.00,
             ]);
 
             const indices = [
@@ -791,16 +785,16 @@ export function createCarMesh() {
             ]);
 
             const uvs = new Float32Array([
-                0.0, 1.00,
-                1.0, 1.00,
-                0.0, 0.56,
-                1.0, 0.56,
-                0.0, 0.31, 
-                1.0, 0.31,
-                0.0, 0.15,
-                1.0, 0.15,
-                0.0, 0.00,
                 1.0, 0.00,
+                0.0, 0.00,
+                1.0, 0.26,
+                0.0, 0.26,
+                1.0, 0.50,
+                0.0, 0.50,
+                1.0, 0.90,
+                0.0, 0.90,
+                1.0, 1.00,
+                0.0, 1.00,
             ]);
 
             const indices = [
@@ -1035,8 +1029,8 @@ async function loadCar(datFile, pcxFile) {
             back : getSubTexture(texture, 127, 75, 171, 91),
             hood : getSubTexture(texture, 191, 92, 235, 143),
             bottom : getSubTexture(texture, 127, 92, 171, 199),
-            right : getSubTexture(texture, 172, 92, 190, 199),
-            left : getSubTexture(texture, 236, 92, 255, 199),
+            left : getSubTexture(texture, 172, 92, 190, 199),
+            right : getSubTexture(texture, 236, 92, 255, 199),
         }
 
         const driveMode = parseDat(datBuffer);

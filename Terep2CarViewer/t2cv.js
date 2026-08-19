@@ -16,6 +16,7 @@ const cbShowAxis = document.getElementById('show-axis');
 const cbShowSegmentLines = document.getElementById('show-seg-lines');
 const cbShowSegmentId = document.getElementById('show-seg-id');
 const cbShowBodyTex = document.getElementById('show-body-tex');
+const cbShowBodyCol = document.getElementById('show-body-col');
 
 const SKIN_WIDTH = 320;
 const SKIN_HEIGHT = 200;
@@ -29,6 +30,8 @@ let carBody = new THREE.Group();
 let wheelTextures = null;
 let bodyTextures = null;
 let activeWheelMeshes = [];
+
+let globalPalette = null;
 
 const POINT = {
     GEOMETRY: 0,
@@ -167,6 +170,8 @@ function decodePCX(arrayBuffer) {
 function parsePCXTexture(arrayBuffer) {
     const { indices, palette } = decodePCX(arrayBuffer);
 
+    globalPalette = palette;    // TODO: use COL.PCX instead
+
     const canvas = document.createElement('canvas');
     canvas.width = SKIN_WIDTH;
     canvas.height = SKIN_HEIGHT;
@@ -199,6 +204,21 @@ function parsePCXTexture(arrayBuffer) {
     texture.wrapT = THREE.ClampToEdgeWrapping;
 
     return texture;
+}
+
+function getColorFromPalette(colorIdx) {
+    const pixelIdx = colorIdx * 4;
+    const R = globalPalette[colorIdx * 3]     / 255.0;
+    const G = globalPalette[colorIdx * 3 + 1] / 255.0;
+    const B = globalPalette[colorIdx * 3 + 2] / 255.0;
+
+    let A = 255;
+    if (colorIdx == 255) {
+        A = 0;
+    }
+
+    // TODO: A
+    return new THREE.Color().setRGB(R, G, B);
 }
 
 // based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c
@@ -286,13 +306,17 @@ function parseDat(arrayBuffer) {
         } else if (type === 4) {
             const count = view.getUint8(p3Offset);
             p3Offset += 1;
-            const dataLength = count + 2;
-            const data = [];
+            const dataLength = count + 1;
+            const vertices = [];
             for (let j = 0; j < dataLength; j++) {
-                data.push(view.getInt16(p3Offset, true));
+                vertices.push(view.getInt16(p3Offset, true));
                 p3Offset += 2;
             }
-            dataPoint.data = { count, data };
+            const color1 = view.getInt8(p3Offset);
+            p3Offset += 1;
+            const color2 = view.getInt8(p3Offset)
+            p3Offset += 1;
+            dataPoint.data = { count, vertices, color1, color2 };
         } else if (type === 8) {
             const count = view.getUint8(p3Offset);
             p3Offset += 1;
@@ -731,6 +755,69 @@ export function createCarMesh() {
         }
     }
 
+    if (cbShowBodyCol.checked) {
+        for(let i = 0; i < points3.length; ++i) {
+            if (points3[i].type != 4) {
+                continue;
+            }
+
+            const quadCol = points3[i];
+
+            if (quadCol.data.vertices.length != 5) {
+                continue;
+            }
+
+            if (quadCol.data.color1 == 0 || quadCol.data.color2 == 0) {
+                continue;
+            }
+
+            const color1 = getColorFromPalette(quadCol.data.color1);
+            const color2 = getColorFromPalette(quadCol.data.color2);
+
+            let pointIndices = [];
+            for (let j = 0; j < quadCol.data.vertices.length; ++j) {
+                pointIndices.push(quadCol.data.vertices[j] / 2);
+            }
+
+            // TODO: refactor this
+            const p1 = points1[pointIndices[0]];
+            console.log(pointIndices[0]);
+            console.log(p1);
+            const p2 = points1[pointIndices[1]];
+            const p3 = points1[pointIndices[2]];
+            const p4 = points1[pointIndices[3]];
+            const p5 = points1[pointIndices[4]];
+
+            const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
+            const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
+            const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
+
+            const vertices = new Float32Array([
+                v1.x , v1.y, v1.z,
+                v2.x , v2.y, v2.z,
+                v3.x , v3.y, v3.z,
+
+                v3.x , v3.y, v3.z,
+                v4.x , v4.y, v4.z,
+                v5.x , v5.y, v5.z
+            ]);
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.computeVertexNormals();
+
+            const material = new THREE.MeshStandardMaterial({
+                color: color1,
+                flatShading: true,
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            carBody.add(mesh);
+        }
+    }
+
     return { carBody, wheels };
 }
 
@@ -1016,6 +1103,10 @@ export function initTerep2CarViewer(options = {}) {
     });
 
     cbShowBodyTex.addEventListener('change', (event) => {
+        addScene();
+    });
+
+    cbShowBodyCol.addEventListener('change', (event) => {
         addScene();
     });
 

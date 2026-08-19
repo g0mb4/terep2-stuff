@@ -761,52 +761,75 @@ export function createCarMesh() {
                 continue;
             }
 
-            const quadCol = points3[i];
+            const quadCol = points3[i].data;
 
-            if (quadCol.data.vertices.length != 5) {
+            if (quadCol.vertices.length != 5 && quadCol.vertices.length != 4) {
                 continue;
             }
 
-            if (quadCol.data.color1 == 0 || quadCol.data.color2 == 0) {
+            if (quadCol.color1 == 0 || quadCol.color2 == 0) {
                 continue;
             }
 
-            const color1 = getColorFromPalette(quadCol.data.color1);
-            const color2 = getColorFromPalette(quadCol.data.color2);
+            const color1 = getColorFromPalette(quadCol.color1);
+            const color2 = getColorFromPalette(quadCol.color2);
 
             let pointIndices = [];
-            for (let j = 0; j < quadCol.data.vertices.length; ++j) {
-                pointIndices.push(quadCol.data.vertices[j] / 2);
+            for (let j = 0; j < quadCol.vertices.length; ++j) {
+                pointIndices.push(quadCol.vertices[j] / 2);
             }
 
+            let geometry = null;
             // TODO: refactor this
-            const p1 = points1[pointIndices[0]];
-            const p2 = points1[pointIndices[1]];
-            const p3 = points1[pointIndices[2]];
-            const p4 = points1[pointIndices[3]];
-            const p5 = points1[pointIndices[4]];
+            if (quadCol.vertices.length == 5) {
+                const p1 = points1[pointIndices[0]];
+                const p2 = points1[pointIndices[1]];
+                const p3 = points1[pointIndices[2]];
+                const p4 = points1[pointIndices[3]];
+                const p5 = points1[pointIndices[4]];
 
-            const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
-            const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
-            const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
-            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
+                const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
+                const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
+                const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+                const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
+                const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
 
-            const vertices = new Float32Array([
-                v1.x , v1.y, v1.z,
-                v2.x , v2.y, v2.z,
-                v3.x , v3.y, v3.z,
+                const vertices = new Float32Array([
+                    v1.x , v1.y, v1.z,
+                    v2.x , v2.y, v2.z,
+                    v3.x , v3.y, v3.z,
 
-                v3.x , v3.y, v3.z,
-                v4.x , v4.y, v4.z,
-                v5.x , v5.y, v5.z
-            ]);
+                    v3.x , v3.y, v3.z,
+                    v4.x , v4.y, v4.z,
+                    v5.x , v5.y, v5.z
+                ]);
 
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-            geometry.computeVertexNormals();
+                geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.computeVertexNormals();
+            }
 
-            // TODO: checkboad pattern using color1 and color2
+            if (quadCol.vertices.length == 4) {
+                const p1 = points1[pointIndices[0]];
+                const p2 = points1[pointIndices[1]];
+                const p3 = points1[pointIndices[2]];
+
+                const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
+                const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
+                const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+
+                const vertices = new Float32Array([
+                    v1.x , v1.y, v1.z,
+                    v2.x , v2.y, v2.z,
+                    v3.x , v3.y, v3.z,
+                ]);
+
+                geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.computeVertexNormals();
+            }
+
+            // TODO: checkerboard pattern using color1 and color2
             const material = new THREE.MeshStandardMaterial({
                 color: color1,
                 flatShading: true,

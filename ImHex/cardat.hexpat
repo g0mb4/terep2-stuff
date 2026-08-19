@@ -66,7 +66,7 @@ struct DataPoint3Type3 {
 
 struct DataPoint3Type4 {
     u8 count;
-    s16 data[count+1];
+    u16 veretx_id_times2[count+1];
     u8 color1;
     u8 color2;
 };

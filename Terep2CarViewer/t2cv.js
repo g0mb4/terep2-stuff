@@ -207,7 +207,6 @@ function parsePCXTexture(arrayBuffer) {
 }
 
 function getVec4FromPalette(colorIdx) {
-    const pixelIdx = colorIdx * 4;
     const R = globalPalette[colorIdx * 3]     / 255.0;
     const G = globalPalette[colorIdx * 3 + 1] / 255.0;
     const B = globalPalette[colorIdx * 3 + 2] / 255.0;
@@ -250,6 +249,7 @@ function parseDat(arrayBuffer) {
 
     const geometryPoints = [];
 
+    // TODO: transform points here!!!
     for (let i = 0; i < num_points1; i++) {
         const p1 = {
             x: view.getInt32(p1Offset, true),
@@ -377,7 +377,7 @@ function createTextSprite(text, color) {
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const spriteMaterial = new THREE.MeshBasicMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
 
     return sprite;
@@ -391,7 +391,7 @@ function createTexturedSurface(vertices, uvs, indices, texture) {
     geometry.computeVertexNormals();
     geometry.clearGroups();
 
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshBasicMaterial({
         map: texture,
         side: THREE.FrontSide,
         transparent: true,
@@ -969,7 +969,7 @@ export function createCarMesh() {
             }
 
             // TODO: checkerboard pattern using color1 and color2
-            const material = new THREE.MeshStandardMaterial({
+            const material = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(color1.x, color1.y, color1.z),
                 flatShading: true,
                 opacity: color1.w,
@@ -1058,13 +1058,6 @@ controls.panSpeed = 8;
 
 function addScene() {
     scene.clear();
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(50, 80, 30);
-    scene.add(dirLight);
 
     const { carBody, wheels } = createCarMesh();
     scene.add(carBody);

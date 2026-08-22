@@ -1,6 +1,6 @@
 // Terep2's CAR.DAT
 //
-// source: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c
+// source: https://github.com/Zi9/Deformerz/blob/master/src/LibTerep/TerepCar.c
 //
 // 2026, gmb
 
@@ -9,18 +9,12 @@
 
 #pragma endian little
 
-enum DriveMode : u16 {
-    RWD = 0,
-    FWD = 1,
-    AWD = 2,
-};
-
 struct Header {
     u16 chunk1_start;
     u16 chunk2_start;
     u16 chunk3_start;
-    u16 unknown;
-    DriveMode drive_mode;
+    u16 unknown1;
+    u16 unknown2;
 };
 
 enum DataPoint1Type : u16 {
@@ -31,11 +25,11 @@ enum DataPoint1Type : u16 {
 };
 
 struct DataPoint1 {
-    s32 x;
+    s32 x;      // assumed to be a Q8.8 (lower s16 is always 0)
     s32 y;
     s32 z;
     u8 pad4[10];
-    s32 radius;
+    s32 size;
     DataPoint1Type type;
 };
 
@@ -47,17 +41,19 @@ enum DataPoint2Type : u16 {
 };
 
 struct DataPoint2 {
-    u16 a;
-    u16 b;
-    u16 other1;
-    u16 other2;
+    u16 point1_index_a;
+    u16 point1_index_b;
+    u16 unknown1;
+    u16 unknown2;
     DataPoint2Type type;
-    u16 other3;
-    u16 other4;
+    u16 unknown3;
+    u16 unknown4;
 };
 
 struct DataPoint3Type1 {
-    s8 data[4];
+    u16 camera_point1_index_times2; // scaled by 2
+    u8 unknown1;
+    u8 unknown2;
 };
 
 struct DataPoint3Type3 {
@@ -66,18 +62,26 @@ struct DataPoint3Type3 {
 
 struct DataPoint3Type4 {
     u8 count;
-    u16 veretx_id_times2[count+1];
+    u16 point1_index_times2[count + 1]; // scaled by 2
     u8 color1;
     u8 color2;
 };
 
+struct TexturedPolygon {
+    u16 point1_index_times2;    // scaled by 2
+    u16 uvx;                    // scaled by 65535.0
+    u16 uvy;                    // scaled by 65535.0
+};
+
 struct DataPoint3Type8 {
     u8 count;
-    u16 data[(count + 1) * 3];
+    TexturedPolygon data[count + 1];
 };
 
 struct DataPoint3Type10 {
-    u16 data[3];
+   u16 wheel_point1_index_times2;  // scaled by 2
+   u16 unknown1;
+   u16 unknown2;
 };
 
 struct DataPoint3Type246 {

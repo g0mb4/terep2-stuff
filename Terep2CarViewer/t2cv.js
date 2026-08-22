@@ -377,7 +377,7 @@ function createTextSprite(text, color) {
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.MeshBasicMaterial({ map: texture });
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
 
     return sprite;

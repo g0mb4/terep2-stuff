@@ -169,10 +169,13 @@ function decodePCX(arrayBuffer, requestedWidth, requestedHeight) {
     return { indices, palette };
 }
 
+function loadGlobalPalette(arrayBuffer) {
+    const { indices, palette } = decodePCX(arrayBuffer, 256, 256);
+    globalPalette = palette;
+}
+
 function parsePCXTexture(arrayBuffer) {
     const { indices, palette } = decodePCX(arrayBuffer, SKIN_WIDTH, SKIN_HEIGHT);
-
-    globalPalette = palette;    // TODO: use COL.PCX instead
 
     const canvas = document.createElement('canvas');
     canvas.width = SKIN_WIDTH;
@@ -220,7 +223,7 @@ function getVec4FromPalette(colorIdx) {
 
     // transparent
     if (colorIdx == 240) {
-        A = 0.2;    // TODO: it is just  aguess
+        A = 0.2;    // TODO: it is just a guess
     }
 
     return new THREE.Vector4(R, G, B, A);
@@ -890,20 +893,25 @@ function addScene() {
     }
 }
 
-async function loadCar(datFile, pcxFile) {
+async function loadCar(datFile, pcxFile, palFile) {
     try {
-        const [datRes, pcxRes] = await Promise.all([
+        const [datRes, pcxRes, palRes] = await Promise.all([
             fetch(datFile),
-            fetch(pcxFile)
+            fetch(pcxFile),
+            fetch(palFile)
         ]);
 
         if (!datRes.ok) throw new Error(`Failed to locate '${datFile}'`);
         if (!pcxRes.ok) throw new Error(`Failed to locate '${pcxFile}'`);
+        if (!palRes.ok) throw new Error(`Failed to locate '${palFile}'`);
 
-        const [datBuffer, pcxBuffer] = await Promise.all([
+        const [datBuffer, pcxBuffer, palBuffer] = await Promise.all([
             datRes.arrayBuffer(),
-            pcxRes.arrayBuffer()
+            pcxRes.arrayBuffer(),
+            palRes.arrayBuffer()
         ]);
+
+        loadGlobalPalette(palBuffer);
 
         bodyTexture = parsePCXTexture(pcxBuffer);
         wheelTextures = {
@@ -922,9 +930,10 @@ async function loadCar(datFile, pcxFile) {
         addScene();
 
         statusEl.innerHTML = `DAT: ${datFile}<br>` +
-                             `PCX: ${pcxFile}<br><br>`;
+                             `PCX: ${pcxFile}<br>` +
+                             `PAL: ${palFile}<br><br>`;
 
-        statusEl.innerHTML += "<br> Controls:<br>" +
+        statusEl.innerHTML += "Controls:<br>" +
                               " • Left click + drag to rotate<br>" +
                               " • Right click + drag to pan<br>" +
                               " • Scroll to zoom<br>" +
@@ -1026,12 +1035,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-export function initTerep2CarViewer(options = {}) {
-    const {
-        datFile = "CAR1.DAT",
-        pcxFile = "TESTW.PCX",
-    } = options;
-
+export function initTerep2CarViewer(datFile, pcxFile, palFile) {
     cbShowCam.addEventListener('change', (event) => {
         addScene();
     });
@@ -1073,6 +1077,6 @@ export function initTerep2CarViewer(options = {}) {
         addScene();
     });
 
-    loadCar(datFile, pcxFile);
+    loadCar(datFile, pcxFile, palFile);
     animate();
 }

@@ -152,15 +152,21 @@
     const urlParams = new URLSearchParams(queryString);
     let datFile = null;
     let pcxFile = null;
+    let palFile = null;
 
     if (urlParams.size === 0) {
         datFile = "cars/models/CAR1.DAT";
         pcxFile = "cars/skins/TEXTURES.PCX";
+        palFile = "cars/palette/ORIGINAL.PCX";
     } else {
         datFile = urlParams.get('datFile');
         pcxFile = urlParams.get('pcxFile');
         if (!pcxFile) {
             pcxFile = "cars/skins/TEXTURES.PCX";
+        }
+        palFile = urlParams.get('palFile');
+        if (!palFile) {
+            palFile = "cars/palette/ORIGINAL.PCX";
         }
     }
 
@@ -175,10 +181,7 @@
         }
     });
 
-    initTerep2CarViewer({
-        datFile: datFile,
-        pcxFile: pcxFile,
-    });
+    initTerep2CarViewer(datFile, pcxFile, palFile);
   </script>
 </body>
 </html>

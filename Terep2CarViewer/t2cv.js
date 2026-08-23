@@ -18,7 +18,7 @@ const cbShowSegmentId = document.getElementById('show-seg-id');
 const cbShowBodyTex = document.getElementById('show-body-tex');
 const cbShowBodyCol = document.getElementById('show-body-col');
 
-const SKIN_WIDTH = 320;
+const SKIN_WIDTH = 256;
 const SKIN_HEIGHT = 200;
 const MODEL_SCALE = 10000000.0;
 
@@ -26,9 +26,9 @@ let points1 = [];
 let points2 = [];
 let points3 = [];
 
-let carBody = new THREE.Group();
+let carBody = null;
 let wheelTextures = null;
-let bodyTextures = null;
+let bodyTexture = null;
 let activeWheelMeshes = [];
 
 let globalPalette = null;
@@ -56,6 +56,7 @@ function cloneAndFlipX(texture) {
     return flipped;
 }
 
+/*
 function cloneAndFlipY(texture) {
     const flipped = texture.clone();
     flipped.wrapT = THREE.RepeatWrapping;
@@ -64,6 +65,7 @@ function cloneAndFlipY(texture) {
     flipped.needsUpdate = true;
     return flipped;
 }
+*/
 
 function getSubTexture(sourceTexture, x1, y1, x2, y2, widthPad = 0, heightPad = 0) {
     const sourceCanvas = sourceTexture.image;
@@ -101,7 +103,7 @@ function getSubTexture(sourceTexture, x1, y1, x2, y2, widthPad = 0, heightPad = 
     return subTexture;
 }
 
-function decodePCX(arrayBuffer) {
+function decodePCX(arrayBuffer, requestedWidth, requestedHeight) {
     const bytes = new Uint8Array(arrayBuffer);
     const view = new DataView(arrayBuffer);
 
@@ -125,7 +127,7 @@ function decodePCX(arrayBuffer) {
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
 
-    if (width != SKIN_WIDTH || height != SKIN_HEIGHT) {
+    if (width < requestedWidth || height < requestedHeight) {
         throw new Error("Invalid PCX dimensions.");
     }
 
@@ -138,10 +140,10 @@ function decodePCX(arrayBuffer) {
     }
 
     let offset = HEADER_SIZE;
-    const indices = new Uint8Array(width * height);
+    const indices = new Uint8Array(requestedWidth * requestedHeight);
     const RLE_COUNT_MASK = 0xC0;
 
-    for (let y = 0; y < height; y++) {
+    for (let y = 0; y < requestedHeight; y++) {
         let x = 0;
         let scanlineBytes = 0;
 
@@ -155,8 +157,8 @@ function decodePCX(arrayBuffer) {
             }
 
             for (let j = 0; j < count; j++) {
-                if (x < width) {
-                    indices[y * width + x] = bytee;
+                if (x < requestedWidth) {
+                    indices[y * requestedWidth + x] = bytee;
                 }
                 x++;
                 scanlineBytes++;
@@ -168,7 +170,7 @@ function decodePCX(arrayBuffer) {
 }
 
 function parsePCXTexture(arrayBuffer) {
-    const { indices, palette } = decodePCX(arrayBuffer);
+    const { indices, palette } = decodePCX(arrayBuffer, SKIN_WIDTH, SKIN_HEIGHT);
 
     globalPalette = palette;    // TODO: use COL.PCX instead
 
@@ -181,9 +183,9 @@ function parsePCXTexture(arrayBuffer) {
     for (let i = 0; i < SKIN_WIDTH * SKIN_HEIGHT; i++) {
         const colorIdx = indices[i];
         const pixelIdx = i * 4;
-        imgData.data[pixelIdx]     = palette[colorIdx * 3];         // R
-        imgData.data[pixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
-        imgData.data[pixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
+        imgData.data[pixelIdx]     = globalPalette[colorIdx * 3];         // R
+        imgData.data[pixelIdx + 1] = globalPalette[colorIdx * 3 + 1];     // G
+        imgData.data[pixelIdx + 2] = globalPalette[colorIdx * 3 + 2];     // B
 
         // last color is transparent
         if (colorIdx == 255) {
@@ -224,7 +226,7 @@ function getVec4FromPalette(colorIdx) {
     return new THREE.Vector4(R, G, B, A);
 }
 
-// based on: https://github.com/Zi9/Deformers/blob/master/src/Engine/Assets/DFCarAsset.c
+// based on: https://github.com/Zi9/Deformerz/blob/master/docs/TEREP2_DAT_Format.md
 function parseDat(arrayBuffer) {
     const view = new DataView(arrayBuffer);
     let offset = 0;
@@ -236,8 +238,8 @@ function parseDat(arrayBuffer) {
         chunk1_start: view.getUint16(offset, true),
         chunk2_start: view.getUint16(offset + 2, true),
         chunk3_start: view.getUint16(offset + 4, true),
-        unknown: view.getUint16(offset + 6, true),
-        drive_mode: view.getUint16(offset + 8, true)
+        unknown1: view.getUint16(offset + 6, true),
+        unknown2: view.getUint16(offset + 8, true)
     };
     offset += 10;
 
@@ -245,17 +247,17 @@ function parseDat(arrayBuffer) {
     const num_points1 = view.getUint16(p1Offset, true);
     p1Offset += 2;
 
-    const POINT1_SIZE = 4 + 4 + 4 + 10 + 4 + 2;
+    const POINT1_SIZE = 28;
 
-    const geometryPoints = [];
-
-    // TODO: transform points here!!!
     for (let i = 0; i < num_points1; i++) {
+        const x = view.getInt32(p1Offset, true) / MODEL_SCALE;
+        const z = view.getInt32(p1Offset + 4, true) / MODEL_SCALE;
+        const y = view.getInt32(p1Offset + 8, true) / MODEL_SCALE;
+        const size = view.getInt32(p1Offset + 22, true);
+
         const p1 = {
-            x: view.getInt32(p1Offset, true),
-            y: view.getInt32(p1Offset + 4, true),
-            z: view.getInt32(p1Offset + 8, true),
-            radius: view.getInt32(p1Offset + 22, true),
+            p: new THREE.Vector3(x, y, z),
+            size: size > 0 ? size / MODEL_SCALE : 0,
             type: view.getUint16(p1Offset + 26, true)
         };
 
@@ -271,13 +273,13 @@ function parseDat(arrayBuffer) {
 
     for (let i = 0; i < num_points2; i++) {
         points2.push({
-            a: view.getUint16(p2Offset, true),
-            b: view.getUint16(p2Offset + 2, true),
-            other1: view.getUint16(p2Offset + 4, true),
-            other2: view.getUint16(p2Offset + 6, true),
+            pointA: view.getUint16(p2Offset, true),
+            pointB: view.getUint16(p2Offset + 2, true),
+            unknown1: view.getUint16(p2Offset + 4, true),
+            unknown2: view.getUint16(p2Offset + 6, true),
             type: view.getUint16(p2Offset + 8, true),
-            other3: view.getUint16(p2Offset + 10, true),
-            other4: view.getUint16(p2Offset + 12, true)
+            unknown3: view.getUint16(p2Offset + 10, true),
+            unknown4: view.getUint16(p2Offset + 12, true)
         });
         p2Offset += POINT2_SIZE;
     }
@@ -294,12 +296,11 @@ function parseDat(arrayBuffer) {
         if (type === 0) {
             // Nothing
         } else if (type === 1) {
-            const data = [];
-            for (let j = 0; j < 4; j++) {
-                data.push(view.getInt8(p3Offset));
-                p3Offset += 1;
-            }
-            dataPoint.data = data;
+            const cameraPointIndex = view.getUint16(p3Offset, true);
+            const unknown1 = view.getUint8(p3Offset+2);
+            const unknown2 = view.getUint8(p3Offset+3);
+            p3Offset += 4;
+            dataPoint.data = {cameraPointIndex, unknown1, unknown2};
         } else if (type === 3) {
             const data = [];
             for (let j = 0; j < 6; j++) {
@@ -310,34 +311,36 @@ function parseDat(arrayBuffer) {
         } else if (type === 4) {
             const count = view.getUint8(p3Offset);
             p3Offset += 1;
-            const dataLength = count + 1;
-            const vertices = [];
-            for (let j = 0; j < dataLength; j++) {
-                vertices.push(view.getInt16(p3Offset, true));
-                p3Offset += 2;
+            const polygons = [];
+            for (let j = 0; j < count; j++) {
+                polygons.push(view.getInt16(p3Offset + (2*j), true) / 2);
             }
-            const color1 = view.getUint8(p3Offset);
-            p3Offset += 1;
-            const color2 = view.getUint8(p3Offset)
-            p3Offset += 1;
-            dataPoint.data = { count, vertices, color1, color2 };
+            const color1 = view.getUint8(p3Offset+(2*count+2));
+            const color2 = view.getUint8(p3Offset+(2*count+3));
+
+            p3Offset += 2*count+4;
+            dataPoint.data = { count, polygons, color1, color2 };
         } else if (type === 8) {
             const count = view.getUint8(p3Offset);
             p3Offset += 1;
-            const dataLength = (count + 1) * 3;
-            const data = [];
-            for (let j = 0; j < dataLength; j++) {
-                data.push(view.getUint16(p3Offset, true));
-                p3Offset += 2;
+            const polygons = [];
+            const vScale = 256/200;
+            for (let j = 0; j < count; j++) {
+                const vertex_id = view.getUint16(p3Offset + (2*j*3), true) / 2;
+                const u = view.getUint16(p3Offset + (2*j*3)+2, true) / 65535.0;
+                const v = view.getUint16(p3Offset + (2*j*3)+4, true)*vScale / 65535.0;
+                polygons.push({vertex_id, u, v});
             }
-            dataPoint.data = { count, data };
+
+            p3Offset += (count + 1) * 3 * 2;
+            dataPoint.data = { count, polygons };
         } else if (type === 10) {
-            const data = [];
-            for (let j = 0; j < 3; j++) {
-                data.push(view.getUint16(p3Offset, true));
-                p3Offset += 2;
-            }
-            dataPoint.data = data;
+            const wheelIndex = view.getUint16(p3Offset, true) / 2;
+            const unknown1 = view.getUint16(p3Offset+2, true);
+            const unknown2 = view.getUint16(p3Offset+4, true);
+
+            p3Offset += 3 * 2;
+            dataPoint.data = {wheelIndex, unknown1, unknown2};
         } else if (type === 69 || type === 246) {
             const data = [];
             for (let j = 0; j < 19; j++) {
@@ -352,16 +355,6 @@ function parseDat(arrayBuffer) {
 
         points3.push(dataPoint);
     }
-
-    let driveMode = "RWD";
-    switch (header.drive_mode) {
-        case 0: driveMode = "RWD"; break;
-        case 1: driveMode = "FWD"; break;
-        case 2: driveMode = "AWD"; break;
-        default: driveMode = "??"; break;
-    }
-
-    return driveMode;
 }
 
 function createTextSprite(text, color) {
@@ -389,7 +382,6 @@ function createTexturedSurface(vertices, uvs, indices, texture) {
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
-    geometry.clearGroups();
 
     const material = new THREE.MeshBasicMaterial({
         map: texture,
@@ -409,22 +401,27 @@ export function createCarMesh() {
     const wheelStyle = document.querySelector('input[name="wheel-style"]:checked')?.value;
     const vertexStyle = document.querySelector('input[name="vertex-style"]:checked')?.value;
 
-    const getColor = (hex) => new THREE.Color(hex);
     const wheels = [];
-    let vertexID = -1;
 
+    let vertexID = -1;
     points1.forEach((pt) => {
-        const posX = pt.x / MODEL_SCALE;
-        const posY = pt.y / MODEL_SCALE;
-        const posZ = pt.z / MODEL_SCALE;
+        const p = pt.p;
         vertexID += 1;
 
         if (pt.type === POINT.CAMERA) {
             if (cbShowCam.checked) {
-                const cubeMat = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
-                const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-                cubeMesh.position.set(posX, posY, posZ);
-                carBody.add(cubeMesh);
+                if (vertexStyle == "cube") {
+                    const cubeMat = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+                    const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+                    cubeMesh.position.set(p.x, p.y, p.z);
+                    carBody.add(cubeMesh);
+                }
+
+                if (vertexStyle == "label") {
+                    const textSprite = createTextSprite(vertexID.toString(), "#00FF00");
+                    textSprite.position.set(p.x, p.y, p.z);
+                    carBody.add(textSprite);
+                }
             } else {
                 return;
             }
@@ -434,35 +431,34 @@ export function createCarMesh() {
             if (vertexStyle == "cube") {
                 const cubeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
                 const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-                cubeMesh.position.set(posX, posY, posZ);
+                cubeMesh.position.set(p.x, p.y, p.z);
                 carBody.add(cubeMesh);
             }
 
             if (vertexStyle == "label") {
                 const textSprite = createTextSprite(vertexID.toString(), "#000000");
-                textSprite.position.set(posX, posY, posZ);
+                textSprite.position.set(p.x, p.y, p.z);
                 carBody.add(textSprite);
             }
         }
 
         if (pt.type === POINT.WHEEL_FRONT || pt.type === POINT.WHEEL_REAR) {
-            if (pt.radius <= 0) return
+            if (pt.size <= 0) return
 
-            const pos = new THREE.Vector3(posX, posY, posZ);
-            const norm = new THREE.Vector3(posX < 0 ? -1 : 1, 0, 0);
+            const norm = new THREE.Vector3(p.x < 0 ? -1 : 1, 0, 0);
 
             if (cbShowWheelNorm.checked) {
                 const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                    pos,
-                    pos.clone().add(norm.clone().multiplyScalar(0.5))
+                    p.clone(),
+                    p.clone().add(norm.clone().multiplyScalar(0.5))
                 ]);
                 carBody.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xFF0000 })));
             }
 
             if (wheelStyle == "textured") {
                 const wheel = {
-                    pos: new THREE.Vector3(posX, posY, posZ),
-                    diam: (pt.radius / MODEL_SCALE)*2,
+                    pos: p,
+                    diam: pt.size*2,
                     norm: norm,
                 };
 
@@ -473,13 +469,13 @@ export function createCarMesh() {
                 if (vertexStyle == "cube") {
                     const cubeMat = new THREE.MeshBasicMaterial({ color: 0xFF00FF });
                     const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
-                    cubeMesh.position.set(posX, posY, posZ);
+                    cubeMesh.position.set(p.x, p.y, p.z);
                     carBody.add(cubeMesh);
                 }
 
                 if (vertexStyle == "label") {
                     const textSprite = createTextSprite(vertexID.toString(), "#FF00FF");
-                    textSprite.position.set(posX, posY, posZ);
+                    textSprite.position.set(p.x, p.y, p.z);
                     carBody.add(textSprite);
                 }
 
@@ -489,15 +485,15 @@ export function createCarMesh() {
 
                 for (let i = 0; i <= segments; i++) {
                     const theta = (i / segments) * Math.PI * 2;
-                    positions[i * 3]     = 0;                                           // x
-                    positions[i * 3 + 1] = Math.cos(theta) * pt.radius / MODEL_SCALE;   // y
-                    positions[i * 3 + 2] = Math.sin(theta) * pt.radius / MODEL_SCALE;   // z
+                    positions[i * 3]     = 0;                           // x
+                    positions[i * 3 + 1] = Math.cos(theta) * pt.size;   // y
+                    positions[i * 3 + 2] = Math.sin(theta) * pt.size;   // z
                 }
 
                 circleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 const circleMat = new THREE.LineBasicMaterial({ color: 0xFF00FF });
                 const circleLine = new THREE.LineLoop(circleGeo, circleMat);
-                circleLine.position.set(posX, posY, posZ);
+                circleLine.position.set(p.x, p.y, p.z);
                 carBody.add(circleLine);
             }
         }
@@ -505,11 +501,9 @@ export function createCarMesh() {
 
     let segmentID = -1;
     points2.forEach((seg) => {
-        const pA = points1[seg.a];
-        const pB = points1[seg.b];
+        const pA = points1[seg.pointA].p;
+        const pB = points1[seg.pointB].p;
         segmentID += 1;
-
-        if (!pA || !pB) return;
 
         let color = 0xffffff;
         if (seg.type == SEGMENT.SUSP_REAR) {
@@ -536,7 +530,7 @@ export function createCarMesh() {
             }
         }
 
-        if (pA.type == POINT.CAMERA || pB.type == POINT.CAMERA) {
+        if (points1[seg.pointA].type == POINT.CAMERA || points1[seg.pointA].type == POINT.CAMERA) {
             if (cbShowCam.checked) {
                 color = 0x00ff00;
             } else {
@@ -545,10 +539,10 @@ export function createCarMesh() {
         }
 
         // white bars
-        if ((seg.a == 13 && seg.b == 11) || (seg.a == 11 && seg.b == 13)) {
-             const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
-                new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+        if ((seg.pointA == 13 && seg.pointB == 11) || (seg.pointA == 11 && seg.pointB == 13)) {
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                pA,
+                pB
             ]);
 
             const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
@@ -556,10 +550,10 @@ export function createCarMesh() {
             carBody.add(line);
         }
 
-        if ((seg.a == 12 && seg.b == 10) || (seg.a == 10 && seg.b == 12)) {
+        if ((seg.pointA == 12 && seg.pointB == 10) || (seg.pointA == 10 && seg.pointB == 12)) {
              const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
-                new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+                pA,
+                pB
             ]);
 
             const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
@@ -569,8 +563,8 @@ export function createCarMesh() {
 
         if (cbShowSegmentLines.checked) {
             const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                new THREE.Vector3(pA.x / MODEL_SCALE, pA.y / MODEL_SCALE, pA.z / MODEL_SCALE),
-                new THREE.Vector3(pB.x / MODEL_SCALE, pB.y / MODEL_SCALE, pB.z / MODEL_SCALE)
+                pA,
+                pB
             ]);
 
             const lineMat = new THREE.LineBasicMaterial({ color });
@@ -579,9 +573,9 @@ export function createCarMesh() {
         }
 
         if (cbShowSegmentId.checked) {
-            const sX = ((pA.x + pB.x) / 2) / MODEL_SCALE;
-            const sY = ((pA.y + pB.y) / 2) / MODEL_SCALE;
-            const sZ = ((pA.z + pB.z) / 2) / MODEL_SCALE;
+            const sX = ((pA.x + pB.x) / 2);
+            const sY = ((pA.y + pB.y) / 2);
+            const sZ = ((pA.z + pB.z) / 2);
 
             const textSprite = createTextSprite(segmentID.toString(), "#FFFFFF");
             textSprite.position.set(sX, sY, sZ);
@@ -589,358 +583,35 @@ export function createCarMesh() {
         }
     });
 
-    // TODO: vertex indices are hard coded, not from the .DAT file
-    if (cbShowBodyTex.checked) {
-        // front
-        {
-            const p1 = points1[6];
-            const p2 = points1[7];
-            const p3 = points1[22];
-            const p4 = points1[23];
-
-            const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
-            const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
-            const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
-            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-
-            const vertices = new Float32Array([
-                v1.x, v1.y, v1.z,
-                v2.x, v2.y, v2.z,
-                v3.x, v3.y, v3.z,
-                v4.x, v4.y, v4.z
-            ]);
-
-            const uvs = new Float32Array([
-                0, 0,
-                1, 0,
-                0, 1,
-                1, 1
-            ]);
-
-            const indices = [
-                0, 2, 1,
-                2, 3, 1
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.front);
-            carBody.add(mesh);
-        }
-
-        // back
-        {
-            const p8 = points1[8];
-            const p9 = points1[9];
-            const p4 = points1[4];
-            const p5 = points1[5];
-
-            const v8 = new THREE.Vector3(p8.x / MODEL_SCALE, p8.y / MODEL_SCALE, p8.z / MODEL_SCALE);
-            const v9 = new THREE.Vector3(p9.x / MODEL_SCALE, p9.y / MODEL_SCALE, p9.z / MODEL_SCALE);
-            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
-
-            const vertices = new Float32Array([
-                v8.x, v8.y, v8.z,
-                v9.x, v9.y, v9.z,
-                v4.x, v4.y, v4.z,
-                v5.x, v5.y, v5.z
-            ]);
-
-            const uvs = new Float32Array([
-                0, 1,
-                1, 1,
-                0, 0,
-                1, 0
-            ]);
-
-            const indices = [
-                0, 2, 1,
-                2, 3, 1
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.back);
-            carBody.add(mesh);
-        }
-
-        // hood
-        {
-            const p11 = points1[11];
-            const p10 = points1[10];
-            const p27 = points1[27];
-            const p28 = points1[28];
-            const p6 = points1[6];
-            const p7 = points1[7];
-
-            const v11 = new THREE.Vector3(p11.x / MODEL_SCALE, p11.y / MODEL_SCALE, p11.z / MODEL_SCALE);
-            const v10 = new THREE.Vector3(p10.x / MODEL_SCALE, p10.y / MODEL_SCALE, p10.z / MODEL_SCALE);
-            const v27 = new THREE.Vector3(p27.x / MODEL_SCALE, p27.y / MODEL_SCALE, p27.z / MODEL_SCALE);
-            const v28 = new THREE.Vector3(p28.x / MODEL_SCALE, p28.y / MODEL_SCALE, p28.z / MODEL_SCALE);
-            const v6 = new THREE.Vector3(p6.x / MODEL_SCALE, p6.y / MODEL_SCALE, p6.z / MODEL_SCALE);
-            const v7 = new THREE.Vector3(p7.x / MODEL_SCALE, p7.y / MODEL_SCALE, p7.z / MODEL_SCALE);
-
-            const vertices = new Float32Array([
-                v11.x, v11.y, v11.z,
-                v10.x, v10.y, v10.z,
-                v27.x, v27.y, v27.z,
-                v28.x, v28.y, v28.z,
-                v6.x, v6.y, v6.z,
-                v7.x, v7.y, v7.z
-            ]);
-
-            const uvs = new Float32Array([
-                1.0, 0.0,
-                0.0, 0.0,
-                1.0, 0.5,
-                0.0, 0.5,
-                1.0, 1.0,
-                0.0, 1.0
-            ]);
-
-            const indices = [
-                3, 1, 0,
-                0, 2, 3,
-                5, 3, 2,
-                2, 4, 5
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.hood);
-            carBody.add(mesh);
-        }
-
-        // right
-        {
-            const p9 = points1[9];      // 0
-            const p5 = points1[5];      // 1
-            const p17 = points1[17];    // 2
-            const p20 = points1[20];    // 3
-            const p11 = points1[11];    // 4
-            const p18 = points1[18];    // 5
-            const p27 = points1[27];    // 6
-            const p24 = points1[24];    // 7
-            const p6 = points1[6];      // 8
-            const p22 = points1[22];    // 9
-
-            const v9 = new THREE.Vector3(p9.x / MODEL_SCALE, p9.y / MODEL_SCALE, p9.z / MODEL_SCALE);
-            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
-            const v17 = new THREE.Vector3(p17.x / MODEL_SCALE, p17.y / MODEL_SCALE, p17.z / MODEL_SCALE);
-            const v20 = new THREE.Vector3(p20.x / MODEL_SCALE, p20.y / MODEL_SCALE, p20.z / MODEL_SCALE);
-            const v11 = new THREE.Vector3(p11.x / MODEL_SCALE, p11.y / MODEL_SCALE, p11.z / MODEL_SCALE);
-            const v18 = new THREE.Vector3(p18.x / MODEL_SCALE, p18.y / MODEL_SCALE, p18.z / MODEL_SCALE);
-            const v27 = new THREE.Vector3(p27.x / MODEL_SCALE, p27.y / MODEL_SCALE, p27.z / MODEL_SCALE);
-            const v24 = new THREE.Vector3(p24.x / MODEL_SCALE, p24.y / MODEL_SCALE, p24.z / MODEL_SCALE);
-            const v6 = new THREE.Vector3(p6.x / MODEL_SCALE, p6.y / MODEL_SCALE, p6.z / MODEL_SCALE);
-            const v22 = new THREE.Vector3(p22.x / MODEL_SCALE, p22.y / MODEL_SCALE, p22.z / MODEL_SCALE);
-
-            const vertices = new Float32Array([
-                v9.x, v9.y, v9.z,
-                v5.x, v5.y, v5.z,
-                v17.x, v17.y, v17.z,
-                v20.x, v20.y, v20.z,
-                v11.x, v11.y, v11.z,
-                v18.x, v18.y, v18.z,
-                v27.x, v27.y, v27.z,
-                v24.x, v24.y, v24.z,
-                v6.x, v6.y, v6.z,
-                v22.x, v22.y, v22.z
-            ]);
-
-            // NOTE: this can be wrong
-            const uvs = new Float32Array([
-                0.0, 0.00,
-                1.0, 0.00,
-                0.0, 0.26,
-                1.0, 0.26,
-                0.0, 0.50,
-                1.0, 0.50,
-                0.0, 0.90,
-                1.0, 0.90,
-                0.0, 1.00,
-                1.0, 1.00,
-            ]);
-
-            const indices = [
-                2, 0, 1,    // 17, 9, 5
-                1, 3, 2,    // 5, 20, 17
-                4, 2, 3,    // 11, 17, 20
-                3, 5, 4,    // 20, 18, 11
-                6, 4, 5,    // 27, 11, 18
-                5, 7, 6,    // 18, 24, 27
-                8, 6, 7,    // 6, 27, 24
-                7, 9, 8,    // 24, 22, 26
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.right);
-            carBody.add(mesh);
-        }
-
-        // left
-        {
-            const p8 = points1[8];      // 0
-            const p4 = points1[4];      // 1
-            const p16 = points1[16];    // 2
-            const p21 = points1[21];    // 3
-            const p10 = points1[10];    // 4
-            const p19 = points1[19];    // 5
-            const p28 = points1[28];    // 6
-            const p25 = points1[25];    // 7
-            const p7 = points1[7];      // 8
-            const p23 = points1[23];    // 9
-
-            const v8 = new THREE.Vector3(p8.x / MODEL_SCALE, p8.y / MODEL_SCALE, p8.z / MODEL_SCALE);
-            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-            const v16 = new THREE.Vector3(p16.x / MODEL_SCALE, p16.y / MODEL_SCALE, p16.z / MODEL_SCALE);
-            const v21 = new THREE.Vector3(p21.x / MODEL_SCALE, p21.y / MODEL_SCALE, p21.z / MODEL_SCALE);
-            const v10 = new THREE.Vector3(p10.x / MODEL_SCALE, p10.y / MODEL_SCALE, p10.z / MODEL_SCALE);
-            const v19 = new THREE.Vector3(p19.x / MODEL_SCALE, p19.y / MODEL_SCALE, p19.z / MODEL_SCALE);
-            const v28 = new THREE.Vector3(p28.x / MODEL_SCALE, p28.y / MODEL_SCALE, p28.z / MODEL_SCALE);
-            const v25 = new THREE.Vector3(p25.x / MODEL_SCALE, p25.y / MODEL_SCALE, p25.z / MODEL_SCALE);
-            const v7 = new THREE.Vector3(p7.x / MODEL_SCALE, p7.y / MODEL_SCALE, p7.z / MODEL_SCALE);
-            const v23 = new THREE.Vector3(p23.x / MODEL_SCALE, p23.y / MODEL_SCALE, p23.z / MODEL_SCALE);
-
-            const vertices = new Float32Array([
-                v8.x, v8.y, v8.z,
-                v4.x, v4.y, v4.z,
-                v16.x, v16.y, v16.z,
-                v21.x, v21.y, v21.z,
-                v10.x, v10.y, v10.z,
-                v19.x, v19.y, v19.z,
-                v28.x, v28.y, v28.z,
-                v25.x, v25.y, v25.z,
-                v7.x, v7.y, v7.z,
-                v23.x, v23.y, v23.z
-            ]);
-
-            const uvs = new Float32Array([
-                1.0, 0.00,
-                0.0, 0.00,
-                1.0, 0.26,
-                0.0, 0.26,
-                1.0, 0.50,
-                0.0, 0.50,
-                1.0, 0.90,
-                0.0, 0.90,
-                1.0, 1.00,
-                0.0, 1.00,
-            ]);
-
-            const indices = [
-                0, 2, 1,
-                3, 1, 2,
-                2, 4, 3,
-                5, 3, 4,
-                4, 6, 5,
-                7, 5, 6,
-                6, 8, 7,
-                9, 7, 8,
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.left);
-            carBody.add(mesh);
-        }
-
-        // bottom
-        {
-            const p4 = points1[4];      // 0
-            const p5 = points1[5];      // 1
-            const p21 = points1[21];    // 2
-            const p20 = points1[20];    // 3
-            const p19 = points1[19];    // 4
-            const p18 = points1[18];    // 5
-            const p25 = points1[25];    // 6
-            const p24 = points1[24];    // 7
-
-            const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-            const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
-            const v21 = new THREE.Vector3(p21.x / MODEL_SCALE, p21.y / MODEL_SCALE, p21.z / MODEL_SCALE);
-            const v20 = new THREE.Vector3(p20.x / MODEL_SCALE, p20.y / MODEL_SCALE, p20.z / MODEL_SCALE);
-            const v19 = new THREE.Vector3(p19.x / MODEL_SCALE, p19.y / MODEL_SCALE, p19.z / MODEL_SCALE);
-            const v18 = new THREE.Vector3(p18.x / MODEL_SCALE, p18.y / MODEL_SCALE, p18.z / MODEL_SCALE);
-            const v25 = new THREE.Vector3(p25.x / MODEL_SCALE, p25.y / MODEL_SCALE, p25.z / MODEL_SCALE);
-            const v24 = new THREE.Vector3(p24.x / MODEL_SCALE, p24.y / MODEL_SCALE, p24.z / MODEL_SCALE);;
-
-            const vertices = new Float32Array([
-                v4.x, v4.y, v4.z,
-                v5.x, v5.y, v5.z,
-                v21.x, v21.y, v21.z,
-                v20.x, v20.y, v20.z,
-                v19.x, v19.y, v19.z,
-                v18.x, v18.y, v18.z,
-                v25.x, v25.y, v25.z,
-                v24.x, v24.y, v24.z
-            ]);
-
-            // TODO: fix these
-            const uvs = new Float32Array([
-                1.0, 0.00,
-                0.0, 0.00,
-                1.0, 0.25,
-                0.0, 0.25,
-                1.0, 0.75,
-                0.0, 0.75,
-                1.0, 1.00,
-                0.0, 1.00,
-            ]);
-
-            const indices = [
-                1, 0, 2,    //  5,  4, 21
-                2, 3, 1,    // 21, 20,  5
-                3, 2, 4,    // 20, 21, 19
-                4, 5, 3,    // 19, 18, 20
-                5, 4, 6,    // 18, 19, 25
-                6, 7, 5     // 25, 24, 18
-            ];
-
-            const mesh = createTexturedSurface(vertices, uvs, indices, bodyTextures.bottom);
-            carBody.add(mesh);
-        }
-    }
-
     if (cbShowBodyCol.checked) {
         for(let i = 0; i < points3.length; ++i) {
             if (points3[i].type != 4) {
                 continue;
             }
 
-            const quadCol = points3[i].data;
+            const polygons = points3[i].data.polygons;
 
-            if (quadCol.vertices.length != 5 && quadCol.vertices.length != 4) {
+            if (polygons.length < 3 || polygons.length > 5) {
                 continue;
             }
 
-            if (quadCol.color1 == 0 || quadCol.color2 == 0) {
+            if (points3[i].data.color1 == 0 || points3[i].data.color2 == 0) {
                 continue;
             }
 
-            const color1 = getVec4FromPalette(quadCol.color1);
-            const color2 = getVec4FromPalette(quadCol.color2);
-
-            let pointIndices = [];
-            for (let j = 0; j < quadCol.vertices.length; ++j) {
-                pointIndices.push(quadCol.vertices[j] / 2);
-            }
+            const color1 = getVec4FromPalette(points3[i].data.color1);
+            const color2 = getVec4FromPalette(points3[i].data.color2);
 
             let geometry = null;
-            // TODO: refactor this
-            if (quadCol.vertices.length == 5) {
-                const p1 = points1[pointIndices[0]];
-                const p2 = points1[pointIndices[1]];
-                const p3 = points1[pointIndices[2]];
-                const p4 = points1[pointIndices[3]];
-                const p5 = points1[pointIndices[4]];
-
-                const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
-                const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
-                const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
-                const v4 = new THREE.Vector3(p4.x / MODEL_SCALE, p4.y / MODEL_SCALE, p4.z / MODEL_SCALE);
-                const v5 = new THREE.Vector3(p5.x / MODEL_SCALE, p5.y / MODEL_SCALE, p5.z / MODEL_SCALE);
+            if (polygons.length == 3) {
+                const v0 = points1[polygons[0]].p;
+                const v1 = points1[polygons[1]].p;
+                const v2 = points1[polygons[2]].p;
 
                 const vertices = new Float32Array([
-                    v1.x , v1.y, v1.z,
                     v2.x , v2.y, v2.z,
-                    v3.x , v3.y, v3.z,
-
-                    v3.x , v3.y, v3.z,
-                    v4.x , v4.y, v4.z,
-                    v5.x , v5.y, v5.z
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
                 ]);
 
                 geometry = new THREE.BufferGeometry();
@@ -948,19 +619,46 @@ export function createCarMesh() {
                 geometry.computeVertexNormals();
             }
 
-            if (quadCol.vertices.length == 4) {
-                const p1 = points1[pointIndices[0]];
-                const p2 = points1[pointIndices[1]];
-                const p3 = points1[pointIndices[2]];
-
-                const v1 = new THREE.Vector3(p1.x / MODEL_SCALE, p1.y / MODEL_SCALE, p1.z / MODEL_SCALE);
-                const v2 = new THREE.Vector3(p2.x / MODEL_SCALE, p2.y / MODEL_SCALE, p2.z / MODEL_SCALE);
-                const v3 = new THREE.Vector3(p3.x / MODEL_SCALE, p3.y / MODEL_SCALE, p3.z / MODEL_SCALE);
+            if (polygons.length == 4) {
+                const v0 = points1[polygons[0]].p;
+                const v1 = points1[polygons[1]].p;
+                const v2 = points1[polygons[2]].p;
+                const v3 = points1[polygons[3]].p;
 
                 const vertices = new Float32Array([
-                    v1.x , v1.y, v1.z,
                     v2.x , v2.y, v2.z,
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
+
+                    v0.x , v0.y, v0.z,
                     v3.x , v3.y, v3.z,
+                    v2.x , v2.y, v2.z,
+                ]);
+
+                geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.computeVertexNormals();
+            }
+
+            if (polygons.length == 5) {
+                const v0 = points1[polygons[0]].p;
+                const v1 = points1[polygons[1]].p;
+                const v2 = points1[polygons[2]].p;
+                const v3 = points1[polygons[3]].p;
+                const v4 = points1[polygons[4]].p;
+
+                const vertices = new Float32Array([
+                    v2.x , v2.y, v2.z,
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
+
+                    v0.x , v0.y, v0.z,
+                    v4.x , v4.y, v4.z,
+                    v2.x , v2.y, v2.z,
+
+                    v4.x , v4.y, v4.z,
+                    v3.x , v3.y, v3.z,
+                    v2.x , v2.y, v2.z,
                 ]);
 
                 geometry = new THREE.BufferGeometry();
@@ -971,7 +669,6 @@ export function createCarMesh() {
             // TODO: checkerboard pattern using color1 and color2
             const material = new THREE.MeshBasicMaterial({
                 color: new THREE.Color(color1.x, color1.y, color1.z),
-                flatShading: true,
                 opacity: color1.w,
                 transparent: true
             });
@@ -980,6 +677,127 @@ export function createCarMesh() {
             carBody.add(mesh);
         }
     }
+
+    // TODO: vertex indices are hard coded, not from the .DAT file
+    if (cbShowBodyTex.checked) {
+        for(let i = 0; i < points3.length; ++i) {
+            if (points3[i].type != 8) {
+                continue;
+            }
+
+            const polygons = points3[i].data.polygons;
+
+            if (polygons.length < 3 || polygons.length > 5) {
+                continue;
+            }
+
+            if (polygons.length == 3) {
+                const v0 = points1[polygons[0].vertex_id].p;
+                const v1 = points1[polygons[1].vertex_id].p;
+                const v2 = points1[polygons[2].vertex_id].p;
+
+                const vertices = new Float32Array([
+                    v2.x , v2.y, v2.z,
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
+                ]);
+
+                const uvs = new Float32Array([
+                    polygons[2].u, polygons[2].v,
+                    polygons[1].u, polygons[1].v,
+                    polygons[0].u, polygons[0].v,
+                ]);
+
+                const indices = [
+                    0, 1, 2
+                ];
+
+                const mesh = createTexturedSurface(vertices, uvs, indices, bodyTexture);
+                carBody.add(mesh);
+            }
+
+            if (polygons.length == 4) {
+                const v0 = points1[polygons[0].vertex_id].p;
+                const v1 = points1[polygons[1].vertex_id].p;
+                const v2 = points1[polygons[2].vertex_id].p;
+                const v3 = points1[polygons[3].vertex_id].p;
+
+                const vertices = new Float32Array([
+                    v2.x , v2.y, v2.z,
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
+
+                    v0.x , v0.y, v0.z,
+                    v3.x , v3.y, v3.z,
+                    v2.x , v2.y, v2.z,
+                ]);
+
+                const uvs = new Float32Array([
+                    polygons[2].u, polygons[2].v,
+                    polygons[1].u, polygons[1].v,
+                    polygons[0].u, polygons[0].v,
+
+                    polygons[0].u, polygons[0].v,
+                    polygons[3].u, polygons[3].v,
+                    polygons[2].u, polygons[2].v,
+                ]);
+
+                const indices = [
+                    0, 1, 2,
+                    3, 4, 5
+                ];
+
+                const mesh = createTexturedSurface(vertices, uvs, indices, bodyTexture);
+                carBody.add(mesh);
+            }
+
+            if (polygons.length == 5) {
+                const v0 = points1[polygons[0].vertex_id].p;
+                const v1 = points1[polygons[1].vertex_id].p;
+                const v2 = points1[polygons[2].vertex_id].p;
+                const v3 = points1[polygons[3].vertex_id].p;
+                const v4 = points1[polygons[4].vertex_id].p;
+
+                const vertices = new Float32Array([
+                    v2.x , v2.y, v2.z,
+                    v1.x , v1.y, v1.z,
+                    v0.x , v0.y, v0.z,
+
+                    v0.x , v0.y, v0.z,
+                    v4.x , v4.y, v4.z,
+                    v2.x , v2.y, v2.z,
+
+                    v4.x , v4.y, v4.z,
+                    v3.x , v3.y, v3.z,
+                    v2.x , v2.y, v2.z,
+                ]);
+
+                const uvs = new Float32Array([
+                    polygons[2].u, polygons[2].v,
+                    polygons[1].u, polygons[1].v,
+                    polygons[0].u, polygons[0].v,
+
+                    polygons[0].u, polygons[0].v,
+                    polygons[4].u, polygons[4].v,
+                    polygons[2].u, polygons[2].v,
+
+                    polygons[4].u, polygons[4].v,
+                    polygons[3].u, polygons[3].v,
+                    polygons[2].u, polygons[2].v,
+                ]);
+
+                const indices = [
+                    0, 1, 2,
+                    3, 4, 5,
+                    6, 7, 8
+                ];
+
+                const mesh = createTexturedSurface(vertices, uvs, indices, bodyTexture);
+                carBody.add(mesh);
+            }
+        }
+    }
+
 
     return { carBody, wheels };
 }
@@ -1043,8 +861,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color().setRGB( 0.5, 0.5, 0.5 );
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.up.set(0, 0, 1);
-camera.position.set(-2, -2, 1);
+camera.up.set(0, 1, 0);
+camera.position.set(-2, 1, -2);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1087,35 +905,24 @@ async function loadCar(datFile, pcxFile) {
             pcxRes.arrayBuffer()
         ]);
 
-        const texture = parsePCXTexture(pcxBuffer);
+        bodyTexture = parsePCXTexture(pcxBuffer);
         wheelTextures = {
-            front1 : getSubTexture(texture, 118, 2, 148, 32, 31, 31),
-            front2 : getSubTexture(texture, 150, 2, 178, 32, 31, 31),
-            front3 : getSubTexture(texture, 180, 2, 205, 32, 31, 31),
-            front4 : getSubTexture(texture, 207, 2, 225, 32, 31, 31),
-            front5 : getSubTexture(texture, 227, 2, 238, 32, 31, 31),
-            back1 : getSubTexture(texture, 118, 34, 147, 63, 31, 31),
-            back2 : getSubTexture(texture, 149, 34, 177, 63, 31, 31),
-            back3 : getSubTexture(texture, 179, 34, 204, 63, 31, 31),
-            back4 : getSubTexture(texture, 206, 34, 225, 63, 31, 31),
+            front1 : getSubTexture(bodyTexture, 118, 2, 148, 32, 31, 31),
+            front2 : getSubTexture(bodyTexture, 150, 2, 178, 32, 31, 31),
+            front3 : getSubTexture(bodyTexture, 180, 2, 205, 32, 31, 31),
+            front4 : getSubTexture(bodyTexture, 207, 2, 225, 32, 31, 31),
+            front5 : getSubTexture(bodyTexture, 227, 2, 238, 32, 31, 31),
+            back1 : getSubTexture(bodyTexture, 118, 34, 147, 63, 31, 31),
+            back2 : getSubTexture(bodyTexture, 149, 34, 177, 63, 31, 31),
+            back3 : getSubTexture(bodyTexture, 179, 34, 204, 63, 31, 31),
+            back4 : getSubTexture(bodyTexture, 206, 34, 225, 63, 31, 31),
         }
 
-        bodyTextures = {
-            front : getSubTexture(texture, 191, 81, 235, 91),
-            back : getSubTexture(texture, 127, 75, 171, 91),
-            hood : getSubTexture(texture, 191, 92, 235, 143),
-            bottom : getSubTexture(texture, 127, 92, 171, 199),
-            left : getSubTexture(texture, 172, 92, 190, 199),
-            right : getSubTexture(texture, 236, 92, 255, 199),
-        }
-
-        const driveMode = parseDat(datBuffer);
-
+        parseDat(datBuffer);
         addScene();
 
         statusEl.innerHTML = `DAT: ${datFile}<br>` +
-                             `PCX: ${pcxFile}<br><br>` +
-                             `Drive: ${driveMode}<br>`;
+                             `PCX: ${pcxFile}<br><br>`;
 
         statusEl.innerHTML += "<br> Controls:<br>" +
                               " • Left click + drag to rotate<br>" +

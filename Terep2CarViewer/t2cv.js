@@ -192,9 +192,21 @@ function parsePCXTexture(arrayBuffer) {
 
         // last color is transparent
         if (colorIdx == 255) {
-            imgData.data[pixelIdx + 3] = 0;                         // A
+            imgData.data[pixelIdx + 3] = 0;
+        } else if (colorIdx == 240) {
+            imgData.data[pixelIdx + 3] = 255 * 0.2; // TODO: it is just a guess
+        } else if (colorIdx == 242) {
+            imgData.data[pixelIdx]     = 255;
+            imgData.data[pixelIdx + 1] = 255;
+            imgData.data[pixelIdx + 2] = 255;
+            imgData.data[pixelIdx + 3] = 255 * 0.1; // TODO: it is just a guess
+        } else if (colorIdx == 243) {
+            imgData.data[pixelIdx]     = 255;
+            imgData.data[pixelIdx + 1] = 255;
+            imgData.data[pixelIdx + 2] = 255;
+            imgData.data[pixelIdx + 3] = 255 * 0.2;  // TODO: it is just a guess
         } else {
-            imgData.data[pixelIdx + 3] = 255;                       // A
+            imgData.data[pixelIdx + 3] = 255;
         }
     }
 
@@ -212,18 +224,39 @@ function parsePCXTexture(arrayBuffer) {
 }
 
 function getVec4FromPalette(colorIdx) {
-    const R = globalPalette[colorIdx * 3]     / 255.0;
-    const G = globalPalette[colorIdx * 3 + 1] / 255.0;
-    const B = globalPalette[colorIdx * 3 + 2] / 255.0;
+    let R = globalPalette[colorIdx * 3]     / 255.0;
+    let G = globalPalette[colorIdx * 3 + 1] / 255.0;
+    let B = globalPalette[colorIdx * 3 + 2] / 255.0;
 
     let A = 1.0;
-    if (colorIdx == 255) {
-        A = 0;
+
+    // window
+    // TODO: it is just a guess
+    if (colorIdx == 240) {
+        A = 0.2;
+    }
+
+    // glass1
+    // TODO: it is just a guess
+    if (colorIdx == 242) {
+        R = 1.0;
+        G = 1.0;
+        B = 1.0;
+        A = 0.1;
+    }
+
+    // glass2
+    // TODO: it is just a guess
+    if (colorIdx == 243) {
+        R = 1.0;
+        G = 1.0;
+        B = 1.0;
+        A = 0.2;
     }
 
     // transparent
-    if (colorIdx == 240) {
-        A = 0.2;    // TODO: it is just a guess
+    if (colorIdx == 255) {
+        A = 0;
     }
 
     return new THREE.Vector4(R, G, B, A);

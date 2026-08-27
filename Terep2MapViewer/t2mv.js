@@ -51,7 +51,7 @@ function decodePCX(arrayBuffer) {
 
     let offset = HEADER_SIZE;
     const indices = new Uint8Array(MAP_SIZE * MAP_SIZE);
-    const RLE_COUNT_MASK = 0xC0; 
+    const RLE_COUNT_MASK = 0xC0;
 
     for (let y = 0; y < MAP_SIZE; y++) {
         let x = 0;
@@ -87,19 +87,38 @@ function parsePCXHeightmap(arrayBuffer) {
 function parsePCXTexture(arrayBuffer) {
     const { indices, palette } = decodePCX(arrayBuffer);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = MAP_SIZE;
-    canvas.height = MAP_SIZE;
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.createImageData(MAP_SIZE, MAP_SIZE);
+    const atlasWidth = MAP_SIZE * TILE_SIZE;
+    const atlasHeight = MAP_SIZE * TILE_SIZE;
 
-    for (let i = 0; i < MAP_SIZE * MAP_SIZE; i++) {
-        const colorIdx = indices[i];
-        const pixelIdx = i * 4;
-        imgData.data[pixelIdx]     = palette[colorIdx * 3];         // R
-        imgData.data[pixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
-        imgData.data[pixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
-        imgData.data[pixelIdx + 3] = 255;                           // A
+    const canvas = document.createElement('canvas');
+    canvas.width = atlasWidth;
+    canvas.height = atlasHeight;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(atlasWidth, atlasHeight);
+
+    // TODO: shades are pixelated, use UVs
+    for (let mapY = 0; mapY < MAP_SIZE; mapY++) {
+        for (let mapX = 0; mapX < MAP_SIZE; mapX++) {
+            const colorIdx1 = indices[mapY * MAP_SIZE + mapX];
+            let colorIdx2 = colorIdx1;
+            if (colorIdx1 % 16 != 0) {
+                colorIdx2 = colorIdx1 - 1;
+            }
+
+            for (let py = 0; py < TILE_SIZE; py++) {
+                for (let px = 0; px < TILE_SIZE; px++) {
+                    const destX = mapX * TILE_SIZE + px;
+                    const destY = mapY * TILE_SIZE + py;
+                    const destPixelIdx = (destY * atlasWidth + destX) * 4;
+
+                    const colorIdx = py > (TILE_SIZE - px - 1) ? colorIdx2 : colorIdx1;
+                    imgData.data[destPixelIdx]     = palette[colorIdx * 3];         // R
+                    imgData.data[destPixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
+                    imgData.data[destPixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
+                    imgData.data[destPixelIdx + 3] = 255;                           // A
+                }
+            }
+        }
     }
 
     ctx.putImageData(imgData, 0, 0);
@@ -395,7 +414,7 @@ export function initTerep2MapViewer(options = {}) {
         colFile = "COL.PCX",
         maptexFile = "MAPTEX.PCX",
     } = options;
-  
+
     loadMap(mapName, creator, date, mapFile, colFile, maptexFile);
     animate();
 }

@@ -286,6 +286,7 @@ function createGeometry(heights, scale, heightScale, indices, palette) {
     return geometry;
 }
 
+THREE.ColorManagement.enabled = false;
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 
@@ -328,34 +329,34 @@ async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
         const heightScale = 0.016;
         const geometry = createGeometry(heights, scale, heightScale, indices, palette);
 
-        const frontMaterial = new THREE.MeshBasicMaterial({
+        const frontMaterialCol = new THREE.MeshBasicMaterial({
             vertexColors: true,
-            roughness: 0.8,
+            toneMapped: false,
+            side: THREE.FrontSide
+        });
+
+        const frontMaterialMaptex = new THREE.MeshBasicMaterial({
+            map: tileMap,
             side: THREE.FrontSide
         });
 
         const backMaterial = new THREE.MeshBasicMaterial({
             color: 0xF0F0F0,
-            roughness: 0.9,
-            wireframe: false,
-            flatShading: true,
             side: THREE.BackSide
         });
 
-        const mesh = new THREE.Mesh(geometry, [frontMaterial, backMaterial]);
+        const mesh = new THREE.Mesh(geometry, [frontMaterialCol, backMaterial]);
         mesh.rotation.x = -Math.PI / 2;
         scene.add(mesh);
 
         panel.addEventListener('change', (event) => {
             if (event.target.value == 'col') {
-                frontMaterial.map = colTexture;
+                mesh.material = [frontMaterialCol, backMaterial];
             }
 
             if (event.target.value == 'maptex') {
-                frontMaterial.map = tileMap;
+                mesh.material = [frontMaterialMaptex, backMaterial];
             }
-
-            frontMaterial.needsUpdate = true;
         });
 
         if (creator) {
@@ -391,16 +392,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-export function initTerep2MapViewer(options = {}) {
-    const {
-        mapName = "ORIGINAL",
-        creator = "Dénes Nagymáthé",
-        date = "1996-05-04",
-        mapFile = "MAP.PCX",
-        colFile = "COL.PCX",
-        maptexFile = "MAPTEX.PCX",
-    } = options;
-
+export function initTerep2MapViewer(mapName, creator, date, mapFile, colFile, maptexFile) {
     loadMap(mapName, creator, date, mapFile, colFile, maptexFile);
     animate();
 }

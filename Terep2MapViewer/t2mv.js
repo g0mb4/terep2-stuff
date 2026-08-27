@@ -87,50 +87,6 @@ function parsePCXHeightmap(arrayBuffer) {
 function parsePCXTexture(arrayBuffer) {
     const { indices, palette } = decodePCX(arrayBuffer);
 
-    const atlasWidth = MAP_SIZE * TILE_SIZE;
-    const atlasHeight = MAP_SIZE * TILE_SIZE;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = atlasWidth;
-    canvas.height = atlasHeight;
-    const ctx = canvas.getContext('2d');
-    const imgData = ctx.createImageData(atlasWidth, atlasHeight);
-
-    // TODO: shades are pixelated, use UVs
-    for (let mapY = 0; mapY < MAP_SIZE; mapY++) {
-        for (let mapX = 0; mapX < MAP_SIZE; mapX++) {
-            const colorIdx1 = indices[mapY * MAP_SIZE + mapX];
-            let colorIdx2 = colorIdx1;
-            if (colorIdx1 % 16 != 0) {
-                colorIdx2 = colorIdx1 - 1;
-            }
-
-            for (let py = 0; py < TILE_SIZE; py++) {
-                for (let px = 0; px < TILE_SIZE; px++) {
-                    const destX = mapX * TILE_SIZE + px;
-                    const destY = mapY * TILE_SIZE + py;
-                    const destPixelIdx = (destY * atlasWidth + destX) * 4;
-
-                    const colorIdx = py > (TILE_SIZE - px - 1) ? colorIdx2 : colorIdx1;
-                    imgData.data[destPixelIdx]     = palette[colorIdx * 3];         // R
-                    imgData.data[destPixelIdx + 1] = palette[colorIdx * 3 + 1];     // G
-                    imgData.data[destPixelIdx + 2] = palette[colorIdx * 3 + 2];     // B
-                    imgData.data[destPixelIdx + 3] = 255;                           // A
-                }
-            }
-        }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.flipY = false;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-
     // sky color is the last color in COL's palette
     const skyColor = {
         "R": palette[255 * 3] / 255,
@@ -138,7 +94,7 @@ function parsePCXTexture(arrayBuffer) {
         "B": palette[255 * 3 + 2] / 255,
     };
 
-    return { texture, skyColor };
+    return { indices, palette, skyColor };
 }
 
 function parsePCXTileMap(colBuffer, maptexBuffer) {
@@ -198,23 +154,42 @@ function parsePCXTileMap(colBuffer, maptexBuffer) {
 
 // based on:
 // https://github.com/Zi9/Deformers/blob/master/src/core/map.c
-function createGeometry(heights, scale, heightScale) {
+function createGeometry(heights, scale, heightScale, indices, palette) {
     const numQuads = MAP_SIZE - 1;
     const totalTriangles = numQuads * numQuads * 2;
     const totalVertices = totalTriangles * 3;
 
     const vertices = new Float32Array(totalVertices * 3);
     const uvs = new Float32Array(totalVertices * 2);
+    const colors = new Float32Array(totalVertices * 3);
 
     let vertC = 0;
     let uvC = 0;
+    let colorC = 0;
 
     const halfSize = MAP_SIZE / 2.0;
 
     for (let y = 0; y < numQuads; y++) {
         for (let x = 0; x < numQuads; x++) {
+            const yInv = MAP_SIZE - y - 1;
+            const colorIdx1 = indices[yInv * MAP_SIZE + x];
+            let colorIdx2 = colorIdx1;
+            if (colorIdx1 % 16 != 0) {
+                colorIdx2 = colorIdx1 - 1;
+            }
+
+            const getColor = (idx) => {
+                const r = palette[idx * 3] / 255.0;
+                const g = palette[idx * 3 + 1] / 255.0;
+                const b = palette[idx * 3 + 2] / 255.0;
+                return [r, g , b];
+            };
+
             const ry0 = MAP_SIZE - y;
             const ry1 = MAP_SIZE - (y + 1);
+
+            const c1 = getColor(colorIdx1);
+            const c2 = getColor(colorIdx2);
 
             // heights at the quad corners
             const z00 = heights[ry0 * MAP_SIZE + x] * heightScale;             // Top-Left
@@ -241,46 +216,66 @@ function createGeometry(heights, scale, heightScale) {
             vertices[vertC + 2] = z00;
             uvs[uvC]            = u0;
             uvs[uvC + 1]        = v0;
+            colors[colorC]      = c1[0];
+            colors[colorC + 1]  = c1[1];
+            colors[colorC + 2]  = c1[2];
 
             vertices[vertC + 3] = x1;
             vertices[vertC + 4] = y0;
             vertices[vertC + 5] = z10;
             uvs[uvC + 2]        = u1;
             uvs[uvC + 3]        = v0;
+            colors[colorC + 3]  = c1[0];
+            colors[colorC + 4]  = c1[1];
+            colors[colorC + 5]  = c1[2];
 
-            vertices[vertC + 6] = x0;
+            vertices[vertC + 6] = x1;
             vertices[vertC + 7] = y1;
-            vertices[vertC + 8] = z01;
-            uvs[uvC + 4]        = u0;
+            vertices[vertC + 8] = z11;
+            uvs[uvC + 4]        = u1;
             uvs[uvC + 5]        = v1;
+            colors[colorC + 6]  = c1[0];
+            colors[colorC + 7]  = c1[1];
+            colors[colorC + 8]  = c1[2];
 
             // triangle 2
-            vertices[vertC + 9]  = x1;
+            vertices[vertC + 9]  = x0;
             vertices[vertC + 10] = y0;
-            vertices[vertC + 11] = z10;
-            uvs[uvC + 6]         = u1;
+            vertices[vertC + 11] = z00;
+            uvs[uvC + 6]         = u0;
             uvs[uvC + 7]         = v0;
+            colors[colorC + 9]   = c2[0];
+            colors[colorC + 10]  = c2[1];
+            colors[colorC + 11]  = c2[2];
 
             vertices[vertC + 12] = x1;
             vertices[vertC + 13] = y1;
             vertices[vertC + 14] = z11;
             uvs[uvC + 8]         = u1;
             uvs[uvC + 9]         = v1;
+            colors[colorC + 12]  = c2[0];
+            colors[colorC + 13]  = c2[1];
+            colors[colorC + 14]  = c2[2];
 
             vertices[vertC + 15] = x0;
             vertices[vertC + 16] = y1;
             vertices[vertC + 17] = z01;
             uvs[uvC + 10]        = u0;
             uvs[uvC + 11]        = v1;
+            colors[colorC + 15]  = c2[0];
+            colors[colorC + 16]  = c2[1];
+            colors[colorC + 17]  = c2[2];
 
             vertC += 18;
             uvC += 12;
+            colorC += 18;
         }
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
     geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
 
     const count = totalVertices;
@@ -305,13 +300,6 @@ container.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-dirLight.position.set(50, 80, 30);
-scene.add(dirLight);
-
 async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
     try {
         const [mapRes, colRes, maptexRes] = await Promise.all([
@@ -331,24 +319,22 @@ async function loadMap(mapName, creator, date, mapFile, colFile, maptexFile) {
         ]);
 
         const heights = parsePCXHeightmap(mapBuffer);
-        const { texture: colTexture, skyColor } = parsePCXTexture(colBuffer);
+        const { indices, palette, skyColor } = parsePCXTexture(colBuffer);
         const tileMap = parsePCXTileMap(colBuffer, maptexBuffer);
 
         scene.background = new THREE.Color().setRGB( skyColor.R, skyColor.G, skyColor.B );
 
         const scale = 0.2;
         const heightScale = 0.016;
-        const geometry = createGeometry(heights, scale, heightScale);
+        const geometry = createGeometry(heights, scale, heightScale, indices, palette);
 
-        const frontMaterial = new THREE.MeshStandardMaterial({
-            map: colTexture,
-            roughness: 0.9,
-            wireframe: false,
-            flatShading: true,
+        const frontMaterial = new THREE.MeshBasicMaterial({
+            vertexColors: true,
+            roughness: 0.8,
             side: THREE.FrontSide
         });
 
-        const backMaterial = new THREE.MeshStandardMaterial({
+        const backMaterial = new THREE.MeshBasicMaterial({
             color: 0xF0F0F0,
             roughness: 0.9,
             wireframe: false,

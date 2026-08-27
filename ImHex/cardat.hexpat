@@ -25,11 +25,14 @@ enum DataPoint1Type : u16 {
 };
 
 struct DataPoint1 {
-    s32 x;      // assumed to be a Q8.8 (lower s16 is always 0)
-    s32 y;
-    s32 z;
-    u8 pad4[10];
-    s32 size;
+    u16 unknown1;
+    u16 x;
+    u16 unknown2;
+    u16 z;
+    u16 unknown3;
+    u16 y;
+    u8 unknown4[12];    // maybe 3x2 u16
+    u16 size;
     DataPoint1Type type;
 };
 

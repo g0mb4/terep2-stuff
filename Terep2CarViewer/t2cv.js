@@ -193,13 +193,16 @@ function parsePCXTexture(arrayBuffer) {
         // last color is transparent
         if (colorIdx == 255) {
             imgData.data[pixelIdx + 3] = 0;
+        // window
         } else if (colorIdx == 240) {
             imgData.data[pixelIdx + 3] = 255 * 0.2; // TODO: it is just a guess
+        // glass1
         } else if (colorIdx == 242) {
             imgData.data[pixelIdx]     = 255;
             imgData.data[pixelIdx + 1] = 255;
             imgData.data[pixelIdx + 2] = 255;
             imgData.data[pixelIdx + 3] = 255 * 0.1; // TODO: it is just a guess
+        // glass2
         } else if (colorIdx == 243) {
             imgData.data[pixelIdx]     = 255;
             imgData.data[pixelIdx + 1] = 255;

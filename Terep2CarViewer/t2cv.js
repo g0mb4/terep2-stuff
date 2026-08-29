@@ -20,7 +20,8 @@ const cbShowBodyCol = document.getElementById('show-body-col');
 
 const SKIN_WIDTH = 256;
 const SKIN_HEIGHT = 200;
-const MODEL_SCALE = 10000000.0;
+const MODEL_SCALE = 256.0;
+const PHYS_LINK_SCALE = 16384.0;
 
 let points1 = [];
 let points2 = [];
@@ -196,6 +197,12 @@ function parsePCXTexture(arrayBuffer) {
         // window
         } else if (colorIdx == 240) {
             imgData.data[pixelIdx + 3] = 255 * 0.2; // TODO: it is just a guess
+        // glass?
+        } else if (colorIdx == 241) {
+            imgData.data[pixelIdx]     = 255;
+            imgData.data[pixelIdx + 1] = 255;
+            imgData.data[pixelIdx + 2] = 255;
+            imgData.data[pixelIdx + 3] = 255 * 0.1; // TODO: it is just a guess
         // glass1
         } else if (colorIdx == 242) {
             imgData.data[pixelIdx]     = 255;
@@ -237,6 +244,15 @@ function getVec4FromPalette(colorIdx) {
     // TODO: it is just a guess
     if (colorIdx == 240) {
         A = 0.2;
+    }
+
+    // glass?
+    // TODO: it is just a guess
+    if (colorIdx == 241) {
+        R = 1.0;
+        G = 1.0;
+        B = 1.0;
+        A = 0.1;
     }
 
     // glass1
@@ -289,10 +305,10 @@ function parseDat(arrayBuffer) {
     const POINT1_SIZE = 28;
 
     for (let i = 0; i < num_points1; i++) {
-        const x = view.getInt32(p1Offset, true) / MODEL_SCALE;
-        const z = view.getInt32(p1Offset + 4, true) / MODEL_SCALE;
-        const y = view.getInt32(p1Offset + 8, true) / MODEL_SCALE;
-        const size = view.getInt32(p1Offset + 22, true);
+        const x = view.getInt16(p1Offset + 2, true) / MODEL_SCALE;
+        const z = view.getInt16(p1Offset + 6, true) / MODEL_SCALE;
+        const y = view.getInt16(p1Offset + 10, true) / MODEL_SCALE;
+        const size = view.getUint16(p1Offset + 24, true);
 
         const p1 = {
             p: new THREE.Vector3(x, y, z),
@@ -314,11 +330,11 @@ function parseDat(arrayBuffer) {
         points2.push({
             pointA: view.getUint16(p2Offset, true),
             pointB: view.getUint16(p2Offset + 2, true),
-            unknown1: view.getUint16(p2Offset + 4, true),
-            unknown2: view.getUint16(p2Offset + 6, true),
+            lenght1: view.getUint16(p2Offset + 4, true) / PHYS_LINK_SCALE,
+            lenght2: view.getUint16(p2Offset + 6, true) / PHYS_LINK_SCALE,
             type: view.getUint16(p2Offset + 8, true),
-            unknown3: view.getUint16(p2Offset + 10, true),
-            unknown4: view.getUint16(p2Offset + 12, true)
+            minLength: view.getUint16(p2Offset + 10, true) / PHYS_LINK_SCALE,
+            maxLength: view.getUint16(p2Offset + 12, true) / PHYS_LINK_SCALE
         });
         p2Offset += POINT2_SIZE;
     }

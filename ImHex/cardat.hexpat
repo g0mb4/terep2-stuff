@@ -28,11 +28,11 @@ enum PointType : u16 {
 
 struct Point {
     u16 unknown1;
-    u16 x;
+    s16 x;
     u16 unknown2;
-    u16 z;
+    s16 z;
     u16 unknown3;
-    u16 y;
+    s16 y;
     u8 unknown4[12];    // maybe 3x2 u16
     u16 size;
     PointType type;

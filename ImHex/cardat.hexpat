@@ -51,8 +51,8 @@ struct PhysLink {
     u16 length;
     u16 unknown1;       // has the same value as length
     PhysLinkType type;
-    u16 unknown2;
-    u16 unknown3;
+    u16 unknown2;       // minimum length?
+    u16 unknown3;       // maximum length?
 };
 
 struct CameraProperty {
@@ -83,14 +83,22 @@ struct TexturedPolygon {
     TexturedPoly data[count + 1];
 };
 
+struct UV {
+    u16 u;                    // scaled by 65535.0
+    u16 v;                    // scaled by 65535.0
+};
+
+struct WheelSprite {
+    u16 height;
+    u16 width;
+    UV uvs[4];
+};
+
 struct WheelProperties {
    u16 point_index_times2;      // scaled by 2
    u16 unknown1;
    u16 unknown2;
-};
-
-struct Chunk3Type246 {
-    u8 data[19];
+   WheelSprite sprites[9];
 };
 
 struct Chunk3Data {
@@ -108,8 +116,6 @@ struct Chunk3Data {
         TexturedPolygon data;
     } else if (type == 10) {
         WheelProperties data;
-    } else if (type == 69 || type == 246) {
-        Chunk3Type246 data;
     } else {
         std::print("unknown Chunk3Data type: {}\n", type);
     }

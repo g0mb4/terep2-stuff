@@ -11,6 +11,7 @@
 
 #pragma endian little
 
+// size = 10
 struct Header {
     u16 chunk1_start;
     u16 chunk2_start;
@@ -26,6 +27,7 @@ enum PointType : u16 {
     CAMERA = 65535,
 };
 
+// size = 28
 struct Point {
     u16 unknown1;
     s16 x;
@@ -45,6 +47,7 @@ enum PhysLinkType : u16 {
     SUSP_FRONT = 10 | 12,
 };
 
+// size = 14
 struct PhysLink {
     u16 point_index_a;
     u16 point_index_b;
@@ -55,16 +58,19 @@ struct PhysLink {
     u16 unknown3;       // maximum length?
 };
 
+// size = 4
 struct CameraProperty {
     u16 point_index_times2; // scaled by 2
     u8 unknown1;
     u8 unknown2;
 };
 
+// size = 12
 struct Chunk3Type3 {
     u16 data[6];
 };
 
+// size = variable
 struct ColoredPolygon {
     u8 count;
     u16 point_indices_times2[count + 1]; // scaled by 2
@@ -82,6 +88,7 @@ struct TexturedPoly {
     UV uv;
 };
 
+// size = variable
 struct TexturedPolygon {
     u8 count;
     TexturedPoly polys[count + 1];
@@ -93,6 +100,7 @@ struct WheelSprite {
     UV uvs[4];
 };
 
+// size = 186
 struct WheelProperties {
    u16 point_index_times2;      // scaled by 2
    u16 unknown1;
@@ -100,7 +108,7 @@ struct WheelProperties {
    WheelSprite sprites[9];
 };
 
-struct Chunk3Data {
+struct RenderCommands {
     u8 type;
 
     if (type == 0) {
@@ -125,4 +133,4 @@ u16 num_points @ header.chunk1_start;
 Point points[num_points] @ header.chunk1_start + sizeof(num_points);
 u16 num_links @ header.chunk2_start;
 PhysLink links[num_links] @ header.chunk2_start + sizeof(num_links);
-Chunk3Data chunk3[while($ < std::mem::size())] @ header.chunk3_start;
+RenderCommands commands[while($ < std::mem::size())] @ header.chunk3_start;

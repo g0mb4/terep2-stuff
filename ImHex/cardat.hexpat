@@ -67,7 +67,7 @@ struct Chunk3Type3 {
 
 struct ColoredPolygon {
     u8 count;
-    u16 point_index_times2[count + 1]; // scaled by 2
+    u16 point_indices_times2[count + 1]; // scaled by 2
     u8 color1;
     u8 color2;
 };
@@ -84,7 +84,7 @@ struct TexturedPoly {
 
 struct TexturedPolygon {
     u8 count;
-    TexturedPoly data[count + 1];
+    TexturedPoly polys[count + 1];
 };
 
 struct WheelSprite {

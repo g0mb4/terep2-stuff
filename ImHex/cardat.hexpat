@@ -72,20 +72,19 @@ struct ColoredPolygon {
     u8 color2;
 };
 
+struct UV {
+    u16 u;                    // scaled by 65535.0
+    u16 v;                    // scaled by 65535.0
+};
+
 struct TexturedPoly {
     u16 point_index_times2;     // scaled by 2
-    u16 uvx;                    // scaled by 65535.0
-    u16 uvy;                    // scaled by 65535.0
+    UV uv;
 };
 
 struct TexturedPolygon {
     u8 count;
     TexturedPoly data[count + 1];
-};
-
-struct UV {
-    u16 u;                    // scaled by 65535.0
-    u16 v;                    // scaled by 65535.0
 };
 
 struct WheelSprite {

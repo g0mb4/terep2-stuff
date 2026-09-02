@@ -20,7 +20,7 @@ struct Header {
 };
 
 enum PointType : u16 {
-    GEMOETRY = 0,
+    GEOMETRY = 0,
     WHEEL_REAR = 1,
     WHEEL_FRONT = 2,
     CAMERA = 65535,

@@ -62,7 +62,7 @@ struct CameraProperty {
 };
 
 struct Chunk3Type3 {
-    s16 data[6];
+    u16 data[6];
 };
 
 struct ColoredPolygon {
@@ -106,15 +106,15 @@ struct Chunk3Data {
     if (type == 0) {
         // nothing
     } else if (type == 1) {
-        CameraProperty data;
+        CameraProperty cam;
     } else if (type == 3) {
-        Chunk3Type3 data;
+        Chunk3Type3 data3;
     } else if (type == 4) {
-        ColoredPolygon data;
+        ColoredPolygon colpoly;
     } else if (type == 8) {
-        TexturedPolygon data;
+        TexturedPolygon texpoly;
     } else if (type == 10) {
-        WheelProperties data;
+        WheelProperties wheel;
     } else {
         std::print("unknown Chunk3Data type: {}\n", type);
     }

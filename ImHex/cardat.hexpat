@@ -67,7 +67,10 @@ struct CameraProperty {
 
 // size = 12
 struct Chunk3Type3 {
-    u16 data[6];
+    u16 point_index1_times2;
+    u16 point_index2_times2;
+    u16 point_index3_times2;
+    u16 data[3];
 };
 
 // size = variable

@@ -1,0 +1,5 @@
+ + Implement LibTerep changes (Vertices -> Points, Segments ->Links, etc..)
+ + Make text smaller (vertices/segments)
+ + Add trasnparent cubes for the vertices
+ + Ability to change background color
+ + Ability to set background image

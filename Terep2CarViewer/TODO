@@ -3,3 +3,6 @@
  + Add trasnparent cubes for the vertices
  + Ability to change background color
  + Ability to set background image
+ + Ability to upload skin files (file upload dialog->byte array)
+ + Wheels
+ + Custom models (requires physics)
